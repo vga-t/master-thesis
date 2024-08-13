@@ -1,14 +1,20 @@
 import * as BABYLON from "babylonjs";
 import Color from "colorjs.io";
 
-import SceneManager from "./sceneManager.js";
+import SceneManager from "./SceneManager.js";
 import loadCSV from "./dataLoader.js";
+import CurvedScreen from "./Visualization/curvedScreen.js";
 
 
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
+const scene = sceneManager.scene;
+const displayCanvas = new CurvedScreen(csvData, { arcAngle: Math.PI * 0.5, radius: 3.5, height: 1.8 }, scene);
 
-// const colorComponentRange = [35,65];
+
+// sceneManager.scene.debugLayer.show();
+
+const colorComponentRange = [35,65];
 const colorComponentRange = [30, 90];
 
 const redColor = new Color("hsl", [0, 100, 0], 1);
