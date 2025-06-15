@@ -12,6 +12,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "babylonjs": "^8.12.1"
+    "babylonjs": "^8.12.1",
+    "papaparse": "^5.5.3"
   }
 }
