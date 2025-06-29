@@ -7,10 +7,47 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Dependencies
+**/node_modules
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Build outputs
 dist
 dist-ssr
+build
 *.local
+
+# Python/FastAPI specific
+.env
+.env.local
+.env.production
+.env.*.local
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# FastAPI/uvicorn
+*.db
+*.sqlite3
+.pytest_cache/
+.coverage
+htmlcov/
+
+# LangChain/AI specific
+*.pkl
+*.pickle
+vector_store/
+embeddings/
+models/
+*.model
+.chroma/
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +59,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Jupyter Notebooks (if used for experimentation)
+.ipynb_checkpoints/
+*.ipynb
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
