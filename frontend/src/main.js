@@ -2,6 +2,8 @@ import * as BABYLON from "babylonjs";
 import Papa from "papaparse";
 import Color from "colorjs.io";
 
+
+
 let csvData;
 Papa.parse("data.csv",
     {
@@ -25,7 +27,7 @@ Papa.parse("data.csv",
 )
 
 // const colorComponentRange = [35,65];
-const colorComponentRange = [30,90];
+const colorComponentRange = [30, 90];
 
 const redColor = new Color("hsl", [0, 100, 0], 1);
 const yellowColor = new Color("hsl", [60, 100, 0.5], 1);
@@ -33,16 +35,47 @@ const greenColor = new Color("hsl", [120, 100, 0.5], 1);
 const blueColor = new Color("hsl", [240, 100, 0.5], 1);
 const cyanColor = new Color("hsl", [180, 100, 0.5], 1);
 
-let r,g,b;
+let r, g, b;
 
 const colorList = [redColor, yellowColor, greenColor, blueColor, cyanColor];
 const colorListLength = colorList.length;
 
-function colorMapping(dataValue,colorIndex) {
+function colorMapping(dataValue, colorIndex) {
     const lightnessValue = colorComponentRange[0] * (1 - dataValue) + colorComponentRange[1] * dataValue;
     colorList[colorIndex].l = lightnessValue;
     return colorList[colorIndex].srgb;
 }
+
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.continuous = true;
+recognition.lang = "en-US";
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+let isRecording = false;
+let fullTranscript;
+
+document.addEventListener("keypress", event => {
+    if (event.key.toLowerCase() == "r") {
+        isRecording = !isRecording;
+        if (isRecording) {
+            recognition.start();
+            console.log("Start recording");
+        }
+        else {
+            recognition.stop();
+            console.log("Stop recording");
+        }
+    }
+})
+
+recognition.addEventListener("result", (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        fullTranscript += transcript + " ";
+    }
+    console.log(`Full transcript:${fullTranscript}`);
+    fullTranscript = "";
+})
 
 
 async function createScene(csv) {
@@ -85,7 +118,7 @@ async function createScene(csv) {
     basePlane.instancedBuffers.color = new BABYLON.Color4(0, 1, 1, 1);
 
     let columnsCount;
-    
+
 
     const axesViewer = new BABYLON.AxesViewer(scene, 10);
     // console.log(`row size: ${csv.length}, column size:${Object.keys(csv[0]).length}`)
@@ -95,7 +128,7 @@ async function createScene(csv) {
     engine.runRenderLoop(() => {
         scene.render();
     });
-    
+
     for (let row of csv) {
         CellYPos = 0;
         columnsCount = 0;
@@ -107,7 +140,7 @@ async function createScene(csv) {
             // newInstance.position.z = curvatureParameter*Math.sin(columns/columnsCount*Math.PI);
             // await new Promise(resolve => setTimeout(resolve, 5))
             newInstance.alwaysSelectAsActiveMesh = true;
-            [r, g, b] = colorMapping(row[column],columnsCount%colorListLength);
+            [r, g, b] = colorMapping(row[column], columnsCount % colorListLength);
             newInstance.instancedBuffers.color = new BABYLON.Color4(r, g, b, 1);
             CellYPos += cellWidth;
         }
