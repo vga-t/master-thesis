@@ -19,6 +19,7 @@ Papa.parse("data.csv",
             // console.log(csvData[1]);
             console.log(`row size: ${csvData.length}, column size:${Object.keys(csvData[0]).length}`)
             createScene(csvData.slice(0, 50));
+            tryHttp();
         },
         error: (error) => {
             console.error("Error parsing CSV:", error);
@@ -170,4 +171,14 @@ async function createScene(csv) {
     });
 
     return scene;
+}
+function tryHttp() {
+    fetch("http://localhost:8000/about")
+        .then(res => {
+            if (!res.ok) throw new Error("Something went wrong!");
+            return res.json();
+        })
+        .then(data => console.log(data))
+        .catch(err => console.error(err));
+
 }

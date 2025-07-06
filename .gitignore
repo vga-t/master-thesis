@@ -13,6 +13,8 @@ lerna-debug.log*
 *.py[cod]
 *$py.class
 
+MA Thema.pdf
+
 # Build outputs
 dist
 dist-ssr
