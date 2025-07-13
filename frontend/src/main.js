@@ -67,6 +67,7 @@ document.addEventListener("keypress", event => {
             console.log("Stop recording");
         }
     }
+
 })
 
 recognition.addEventListener("result", (event) => {
@@ -79,10 +80,63 @@ recognition.addEventListener("result", (event) => {
 })
 
 
+function renderVisualization(csv, scene) {
+    const curvature = 50;
+    const cellHeight = 1;
+    const cellWidth = 2;
+    let CellXPos = csv.length;
+    let CellYPos;
+    //let CellYPos = Object.keys(csv[0]).length;
+
+    const basePlane = BABYLON.MeshBuilder.CreatePlane("basePlane", { height: cellHeight, width: cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+    basePlane.position = new BABYLON.Vector3(0, 3, 0);
+    const planeMaterial = new BABYLON.StandardMaterial("planeMaterial", scene);
+    basePlane.material = planeMaterial;
+    basePlane.isVisible = true;
+    basePlane.registerInstancedBuffer("color", 4);
+    basePlane.instancedBuffers.color = new BABYLON.Color4(0, 1, 1, 1);
+
+
+    let columnsCount = Object.keys(csv[0]).length;
+    const minCellYPos = 0;
+    const maxCellYPos = (columnsCount - 1) * cellWidth;
+
+    console.log(`CellYPos will range from ${minCellYPos} to ${maxCellYPos}`);
+
+    const axesViewer = new BABYLON.AxesViewer(scene, 10);
+    // console.log(`row size: ${csv.length}, column size:${Object.keys(csv[0]).length}`)
+    // console.log(`row size: ${rowsCount}, column size:${columnsCount}`)
+    console.log(csv[0])
+    // const curvatureParameter = 50;
+
+
+    for (let row of csv) {
+        CellYPos = 0;
+        columnsCount = 0;
+        for (let column in row) {
+            columnsCount++;
+            let newInstance = basePlane.createInstance("instance" + row + column);
+            newInstance.position.x = CellYPos;
+            newInstance.position.y = CellXPos;
+            newInstance.position.z = curvature * Math.sin((CellYPos - minCellYPos)/(maxCellYPos-minCellYPos)*Math.PI)
+            // newInstance.position.z = curvatureParameter*Math.sin(columns/columnsCount*Math.PI);
+            // await new Promise(resolve => setTimeout(resolve, 5))
+            newInstance.alwaysSelectAsActiveMesh = true;
+            [r, g, b] = colorMapping(row[column], columnsCount % colorListLength);
+            newInstance.instancedBuffers.color = new BABYLON.Color4(r, g, b, 1);
+            CellYPos += cellWidth;
+        }
+        CellXPos -= cellHeight;
+
+    }
+
+}
+const canvas = document.getElementById("renderCanvas");
+const engine = new BABYLON.Engine(canvas, true);
+const scene = new BABYLON.Scene(engine);
+
 async function createScene(csv) {
-    const canvas = document.getElementById("renderCanvas");
-    const engine = new BABYLON.Engine(canvas, true);
-    const scene = new BABYLON.Scene(engine);
+
 
     // // Access the WebGL context from Babylon's engine
     // const gl = engine._gl; // Undocumented, but works across versions
@@ -104,52 +158,10 @@ async function createScene(csv) {
     var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), scene);
     light.intensity = 0.7;
 
-    const cellHeight = 1;
-    const cellWidth = 2;
-    let CellXPos = csv.length;
-    let CellYPos;
-    //let CellYPos = Object.keys(csv[0]).length;
-
-    const basePlane = BABYLON.MeshBuilder.CreatePlane("basePlane", { height: cellHeight, width: cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
-    basePlane.position = new BABYLON.Vector3(0, 3, 0);
-    const planeMaterial = new BABYLON.StandardMaterial("planeMaterial", scene);
-    basePlane.material = planeMaterial;
-    basePlane.isVisible = true;
-    basePlane.registerInstancedBuffer("color", 4);
-    basePlane.instancedBuffers.color = new BABYLON.Color4(0, 1, 1, 1);
-
-    let columnsCount;
-
-
-    const axesViewer = new BABYLON.AxesViewer(scene, 10);
-    // console.log(`row size: ${csv.length}, column size:${Object.keys(csv[0]).length}`)
-    // console.log(`row size: ${rowsCount}, column size:${columnsCount}`)
-    console.log(csv[0])
-    // const curvatureParameter = 50;
     engine.runRenderLoop(() => {
         scene.render();
     });
-
-    for (let row of csv) {
-        CellYPos = 0;
-        columnsCount = 0;
-        for (let column in row) {
-            columnsCount++;
-            let newInstance = basePlane.createInstance("instance" + row + column);
-            newInstance.position.x = CellYPos;
-            newInstance.position.y = CellXPos;
-            // newInstance.position.z = curvatureParameter*Math.sin(columns/columnsCount*Math.PI);
-            // await new Promise(resolve => setTimeout(resolve, 5))
-            newInstance.alwaysSelectAsActiveMesh = true;
-            [r, g, b] = colorMapping(row[column], columnsCount % colorListLength);
-            newInstance.instancedBuffers.color = new BABYLON.Color4(r, g, b, 1);
-            CellYPos += cellWidth;
-        }
-        CellXPos -= cellHeight;
-
-    }
-
-
+    renderVisualization(csv, scene);
     // const ground = BABYLON.CreateGround("ground",{ height:50, width: 50,sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene)
     const ground = BABYLON.MeshBuilder.CreateGround("ground", {
         height: 500,
@@ -173,7 +185,7 @@ async function createScene(csv) {
     return scene;
 }
 function tryHttp() {
-    fetch("http://localhost:8000/about")
+    fetch("http://localhost:8000/process")
         .then(res => {
             if (!res.ok) throw new Error("Something went wrong!");
             return res.json();

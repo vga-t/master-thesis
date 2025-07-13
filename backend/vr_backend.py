@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
+GEMINI_API_KEY = os.getenv("Gemini_api_key")
 app = FastAPI()
 
 app.add_middleware(
@@ -20,6 +21,6 @@ app.add_middleware(
 def read_root():
     return {"Hello": "Guys"}
 
-@app.get("/about")
+@app.get("/process")
 def read_root():
     return {"data": "no data currently"}
