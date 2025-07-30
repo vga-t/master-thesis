@@ -5,21 +5,16 @@ import Color from "colorjs.io";
 
 
 let csvData;
-Papa.parse("data.csv",
+Papa.parse("http://localhost:8000/csv",
     {
         download: true,
         header: true,
         complete: (results) => {
             console.log("Parsing complete");
-            // console.log(results.data.length);
-            csvData = results.data
-            // window.csvData = results.data.slice(0,403);
-            // console.log(window.csvData.length);
-            // console.log(window.csvData[0]);
-            // console.log(csvData[1]);
-            console.log(`row size: ${csvData.length}, column size:${Object.keys(csvData[0]).length}`)
-            createScene(csvData.slice(0, 50));
-            tryHttp();
+            csvData = results.data;
+            console.log(`row size: ${csvData.length}, column size:${Object.keys(csvData[0]).length}`);
+            // createScene(csvData.slice(0, 50));
+            createScene(csvData.slice(0, 500));
         },
         error: (error) => {
             console.error("Error parsing CSV:", error);
@@ -67,6 +62,14 @@ document.addEventListener("keypress", event => {
             console.log("Stop recording");
         }
     }
+    if (event.key.toLowerCase() == "d") {
+        const baseMesh = scene.getMeshByName("basePlane");
+        if (baseMesh) {
+            baseMesh.dispose();
+            console.log("Removing base mesh and all its instances!");
+        }
+        else { console.error("No base mesh found to remove!"); }
+    }
 
 })
 
@@ -83,7 +86,7 @@ recognition.addEventListener("result", (event) => {
 function renderVisualization(csv, scene) {
     const curvature = 50;
     const cellHeight = 1;
-    const cellWidth = 2;
+    const cellWidth = 2; // Change from 2 to 1
     let CellXPos = csv.length;
     let CellYPos;
     //let CellYPos = Object.keys(csv[0]).length;
@@ -118,7 +121,7 @@ function renderVisualization(csv, scene) {
             let newInstance = basePlane.createInstance("instance" + row + column);
             newInstance.position.x = CellYPos;
             newInstance.position.y = CellXPos;
-            newInstance.position.z = curvature * Math.sin((CellYPos - minCellYPos)/(maxCellYPos-minCellYPos)*Math.PI)
+            newInstance.position.z = -curvature * Math.sin((CellYPos - minCellYPos) / (maxCellYPos - minCellYPos) * Math.PI)
             // newInstance.position.z = curvatureParameter*Math.sin(columns/columnsCount*Math.PI);
             // await new Promise(resolve => setTimeout(resolve, 5))
             newInstance.alwaysSelectAsActiveMesh = true;
@@ -173,6 +176,13 @@ async function createScene(csv) {
     const xr = await scene.createDefaultXRExperienceAsync({
         floorMeshes: [ground]
     });
+    const featuresManager = xr.baseExperience.featuresManager;
+    const pointerSelection = featuresManager.enableFeature(
+        BABYLON.WebXRFeatureName.POINTER_SELECTION,
+        "latest",
+        { xrInput: xr.input }
+    );
+
 
 
     console.log("Red → X-axis \nGreen → Y-axis \nBlue → Z-axis");
@@ -184,13 +194,13 @@ async function createScene(csv) {
 
     return scene;
 }
-function tryHttp() {
-    fetch("http://localhost:8000/process")
-        .then(res => {
-            if (!res.ok) throw new Error("Something went wrong!");
-            return res.json();
-        })
-        .then(data => console.log(data))
-        .catch(err => console.error(err));
+// function tryHttp() {
+//     fetch("http://localhost:8000/process")
+//         .then(res => {
+//             if (!res.ok) throw new Error("Something went wrong!");
+//             return res.json();
+//         })
+//         .then(data => console.log(data))
+//         .catch(err => console.error(err));
 
-}
+// }

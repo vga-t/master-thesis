@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import os
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse 
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,7 +20,15 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"Hello": "Guys"}
+    return "Hello"
+
+@app.get("/csv")
+def get_csv():
+    csv_path = os.path.join(os.path.dirname(__file__),"csv/data.csv")
+    if os.path.exists(csv_path):
+        return FileResponse(csv_path, media_type='text/csv', filename='data.csv')
+    else:
+        return {"error": "CSV file not found"}
 
 @app.get("/process")
 def read_root():
