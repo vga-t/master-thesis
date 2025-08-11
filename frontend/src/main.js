@@ -13,8 +13,8 @@ Papa.parse("http://localhost:8000/csv",
             console.log("Parsing complete");
             csvData = results.data;
             console.log(`row size: ${csvData.length}, column size:${Object.keys(csvData[0]).length}`);
-            createScene(csvData.slice(0, 50));
-            // createScene(csvData);
+            
+            createScene(csvData.slice(0,50));
         },
         error: (error) => {
             console.error("Error parsing CSV:", error);
@@ -31,7 +31,7 @@ const greenColor = new Color("hsl", [120, 100, 0.5], 1);
 const blueColor = new Color("hsl", [240, 100, 0.5], 1);
 const cyanColor = new Color("hsl", [180, 100, 0.5], 1);
 
-let r, g, b;
+// let r, g, b;
 
 const colorList = [redColor, yellowColor, greenColor, blueColor, cyanColor];
 const colorListLength = colorList.length;
@@ -84,41 +84,67 @@ recognition.addEventListener("result", (event) => {
 
 
 function renderVisualization(csv, scene) {
-    const curvature = 50;
-    const cellHeight = 1;
-    const cellWidth = 2;
-    const basePlane = BABYLON.MeshBuilder.CreatePlane("basePlane", { height: cellHeight, width: cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+    // --- Parameters for the new curved display ---
+    // User-defined parameters
+    const cellWidth = 5;               // Width of each cell
+    const cellHeight = 5;              // Height of each cell
+    const arcAngle = 0.5 * Math.PI;    // Total arc angle in radians (90 degrees as an example)
+
+    // Determine grid dimensions
+    const numRows = csv.length;
+    const numCols = Object.keys(csv[0]).length;
+
+    // Compute the radius needed so that the arc length (radius * arcAngle) equals the total width of the cells
+    const radius = (numCols * cellWidth) / arcAngle;
+
+    // Calculate angle increment for columns
+    const colStepAngle = arcAngle / numCols;
+    const startAngle = -arcAngle / 2;
+
+    // Create the base plane mesh as the template for thin instances
+    const basePlane = BABYLON.MeshBuilder.CreatePlane("basePlane", { height: cellHeight, width: cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
     basePlane.position = new BABYLON.Vector3(0, 3, 0);
     const planeMaterial = new BABYLON.StandardMaterial("planeMaterial", scene);
     basePlane.material = planeMaterial;
     basePlane.isVisible = true;
-    // Prepare thin instance buffers
+
+    // Prepare buffers for thin instances
     const matrices = [];
     const colorsArr = [];
-    // Calculate instance data
-    let columnsCount = Object.keys(csv[0]).length;
-    const minCellYPos = 0;
-    const maxCellYPos = (columnsCount - 1) * cellWidth;
-    let CellXPos = csv.length;
-    console.log(csv[0]);
 
+    let rowIndex = 0;
     for (let row of csv) {
-        let CellYPos = 0;
         let colIndex = 0;
         for (let column in row) {
-            colIndex++;
-            const x = CellYPos;
-            const y = CellXPos;
-            const z = -curvature * Math.sin((CellYPos - minCellYPos) / (maxCellYPos - minCellYPos) * Math.PI);
-            const matrix = BABYLON.Matrix.Translation(x, y, z);
-            matrices.push(...matrix.asArray());
-            const [r, g, b] = colorMapping(row[column], colIndex % colorListLength);
+            // Calculate the cell's angle along the arc, centered within its column segment
+            const cellAngle = startAngle + (colIndex * colStepAngle) + (colStepAngle / 2);
+
+            // Compute position on the arc
+            const x = radius * Math.sin(cellAngle);
+            // Adjust z so that when angle=0 the cell is at z = 0
+            const z = radius * Math.cos(cellAngle) - radius;
+            // Center rows vertically using cellHeight
+            const y = (rowIndex - numRows / 2 + 0.5) * cellHeight;
+
+            // Create a transformation matrix with rotation so cell is tangent to the arc
+            const scaling = new BABYLON.Vector3(1, 1, 1);
+            // Rotation: Rotate around Y axis by cellAngle so the cell faces outward along the arc
+            const rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(cellAngle, 0, 0);
+            const translation = new BABYLON.Vector3(x, y, z);
+            const finalMatrix = BABYLON.Matrix.Compose(scaling, rotationQuaternion, translation);
+
+            matrices.push(...finalMatrix.asArray());
+
+            // Compute color for the cell
+            const [r, g, b] = colorMapping(row[column], (colIndex) % colorListLength);
             colorsArr.push(r, g, b, 1);
-            CellYPos += cellWidth;
+
+            colIndex++;
         }
-        CellXPos -= cellHeight;
+        rowIndex++;
     }
-    // Apply thin instance buffers
+
+    // Apply thin instance buffers: 16 floats per matrix, 4 floats per color
     basePlane.thinInstanceSetBuffer("matrix", matrices, 16);
     basePlane.thinInstanceSetBuffer("color", colorsArr, 4);
 }
@@ -170,13 +196,12 @@ async function createScene(csv) {
         "latest",
         { xrInput: xr.input }
     );
-    scene.debugLayer.show();
 
 
 
 
     console.log("Red → X-axis \nGreen → Y-axis \nBlue → Z-axis");
-    //scene.debugLayer.show();
+    scene.debugLayer.show();
 
     window.addEventListener("resize", () => {
         engine.resize();
