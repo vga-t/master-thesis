@@ -1,26 +1,12 @@
 import * as BABYLON from "babylonjs";
-import Papa from "papaparse";
 import Color from "colorjs.io";
 
+import SceneManager from "./sceneManager.js";
+import loadCSV from "./dataLoader.js";
 
 
-let csvData;
-Papa.parse("http://localhost:8000/csv",
-    {
-        download: true,
-        header: true,
-        complete: (results) => {
-            console.log("Parsing complete");
-            csvData = results.data;
-            console.log(`row size: ${csvData.length}, column size:${Object.keys(csvData[0]).length}`);
-
-            createScene(csvData.slice(0, 50));
-        },
-        error: (error) => {
-            console.error("Error parsing CSV:", error);
-        }
-    }
-)
+const csvData = await loadCSV("http://localhost:8000/csv");
+const sceneManager = new SceneManager("renderCanvas");
 
 // const colorComponentRange = [35,65];
 const colorComponentRange = [30, 90];
