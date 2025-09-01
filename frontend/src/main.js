@@ -13,8 +13,8 @@ Papa.parse("http://localhost:8000/csv",
             console.log("Parsing complete");
             csvData = results.data;
             console.log(`row size: ${csvData.length}, column size:${Object.keys(csvData[0]).length}`);
-            
-            createScene(csvData.slice(0,50));
+
+            createScene(csvData.slice(0, 50));
         },
         error: (error) => {
             console.error("Error parsing CSV:", error);
@@ -168,10 +168,25 @@ async function createScene(csv) {
     // }
 
     console.log(`row size: ${csv.length}, column size:${Object.keys(csv[0]).length}`)
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+    // --- Parameters for the new curved display ---
+    const cellWidth = 5;
+    const cellHeight = 5;
+    const arcAngle = 0.5 * Math.PI;
+    const numRows = csv.length;
+    const numCols = Object.keys(csv[0]).length;
+    const radius = (numCols * cellWidth) / arcAngle;
+    // Calculate the lowest y (bottom row)
+    const minY = (-numRows / 2 + 0.5) * cellHeight;
+    // Calculate the center of the grid
+    const centerY = 0;
+    const centerX = 0;
+    const centerZ = 0;
+
+    // Place camera at a radius distance from center, gazing toward the grid
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(radius * 1.2, centerY, 0), scene);
     camera.attachControl(canvas, true);
-    camera.position.z = 100;
-    camera.setTarget(BABYLON.Vector3.Zero());
+    camera.setTarget(new BABYLON.Vector3(centerX, centerY, centerZ));
+
     var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), scene);
     light.intensity = 0.7;
 
@@ -179,14 +194,16 @@ async function createScene(csv) {
         scene.render();
     });
     renderVisualization(csv, scene);
-    // const ground = BABYLON.CreateGround("ground",{ height:50, width: 50,sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene)
+
+    // Place the ground just below the lowest row
     const ground = BABYLON.MeshBuilder.CreateGround("ground", {
         height: 500,
         width: 500, subdivisions: 1
     }, scene);
-    ground.position.x = 101.22;
-    ground.position.y = -10;
-    ground.position.z = -28.75;
+    ground.position.x = 0;
+    ground.position.y = minY - 1;
+    ground.position.z = 0;
+
     const xr = await scene.createDefaultXRExperienceAsync({
         floorMeshes: [ground]
     });
@@ -197,9 +214,6 @@ async function createScene(csv) {
         { xrInput: xr.input }
     );
 
-
-
-
     console.log("Red → X-axis \nGreen → Y-axis \nBlue → Z-axis");
     scene.debugLayer.show();
 
@@ -209,13 +223,4 @@ async function createScene(csv) {
 
     return scene;
 }
-// function tryHttp() {
-//     fetch("http://localhost:8000/process")
-//         .then(res => {
-//             if (!res.ok) throw new Error("Something went wrong!");
-//             return res.json();
-//         })
-//         .then(data => console.log(data))
-//         .catch(err => console.error(err));
 
-// }
