@@ -1,4 +1,4 @@
-class CurvedScreen {
+class LCVDSLayout {
     constructor(csvData, { arcAngle, radius, height }, scene) {
         this.arcAngle = arcAngle;
         this.radius = radius;
@@ -42,4 +42,4 @@ class CurvedScreen {
 
 }
 
-export default CurvedScreen;
+export default LCVDSLayout;

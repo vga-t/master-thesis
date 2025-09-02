@@ -3,19 +3,18 @@ import Color from "colorjs.io";
 
 import SceneManager from "./SceneManager.js";
 import loadCSV from "./dataLoader.js";
-import CurvedScreen from "./Visualization/curvedScreen.js";
+import LCVDSLayout from "./LCVDSLayout.js";
 
 
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const displayCanvas = new CurvedScreen(csvData, { arcAngle: Math.PI * 0.5, radius: 3.5, height: 1.8 }, scene);
+const layout = new LCVDSLayout(csvData, { arcAngle: Math.PI * 0.5, radius: 3.5, height: 1.8 }, scene);
 
 
 // sceneManager.scene.debugLayer.show();
 
-const colorComponentRange = [35,65];
-const colorComponentRange = [30, 90];
+const colorComponentRange = [35, 65];
 
 const redColor = new Color("hsl", [0, 100, 0], 1);
 const yellowColor = new Color("hsl", [60, 100, 0.5], 1);
@@ -159,46 +158,46 @@ async function createScene(csv) {
     //     console.log("WEBGL_debug_renderer_info not supported");
     // }
 
-    console.log(`row size: ${csv.length}, column size:${Object.keys(csv[0]).length}`)
-    // --- Parameters for the new curved display ---
-    const cellWidth = 5;
-    const cellHeight = 5;
-    const arcAngle = 0.5 * Math.PI;
-    const numRows = csv.length;
-    const numCols = Object.keys(csv[0]).length;
-    const radius = (numCols * cellWidth) / arcAngle;
-    // Calculate the lowest y (bottom row)
-    const minY = (-numRows / 2 + 0.5) * cellHeight;
-    // Calculate the center of the grid
-    const centerY = 0;
-    const centerX = 0;
-    const centerZ = 0;
+    // console.log(`row size: ${csv.length}, column size:${Object.keys(csv[0]).length}`)
+    // // --- Parameters for the new curved display ---
+    // const cellWidth = 5;
+    // const cellHeight = 5;
+    // const arcAngle = 0.5 * Math.PI;
+    // const numRows = csv.length;
+    // const numCols = Object.keys(csv[0]).length;
+    // const radius = (numCols * cellWidth) / arcAngle;
+    // // Calculate the lowest y (bottom row)
+    // const minY = (-numRows / 2 + 0.5) * cellHeight;
+    // // Calculate the center of the grid
+    // const centerY = 0;
+    // const centerX = 0;
+    // const centerZ = 0;
 
     // Place camera at a radius distance from center, gazing toward the grid
-    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(radius * 1.2, centerY, 0), scene);
-    camera.attachControl(canvas, true);
-    camera.setTarget(new BABYLON.Vector3(centerX, centerY, centerZ));
+    // var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(radius * 1.2, centerY, 0), scene);
+    // camera.attachControl(canvas, true);
+    // camera.setTarget(new BABYLON.Vector3(centerX, centerY, centerZ));
 
-    var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), scene);
-    light.intensity = 0.7;
+    // var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), scene);
+    // light.intensity = 0.7;
 
-    engine.runRenderLoop(() => {
-        scene.render();
-    });
+    // engine.runRenderLoop(() => {
+    //     scene.render();
+    // });
     renderVisualization(csv, scene);
 
-    // Place the ground just below the lowest row
-    const ground = BABYLON.MeshBuilder.CreateGround("ground", {
-        height: 500,
-        width: 500, subdivisions: 1
-    }, scene);
-    ground.position.x = 0;
-    ground.position.y = minY - 1;
-    ground.position.z = 0;
+    // // Place the ground just below the lowest row
+    // const ground = BABYLON.MeshBuilder.CreateGround("ground", {
+    //     height: 500,
+    //     width: 500, subdivisions: 1
+    // }, scene);
+    // ground.position.x = 0;
+    // ground.position.y = minY - 1;
+    // ground.position.z = 0;
 
-    const xr = await scene.createDefaultXRExperienceAsync({
-        floorMeshes: [ground]
-    });
+    // const xr = await scene.createDefaultXRExperienceAsync({
+    //     floorMeshes: [ground]
+    // });
     const featuresManager = xr.baseExperience.featuresManager;
     const pointerSelection = featuresManager.enableFeature(
         BABYLON.WebXRFeatureName.POINTER_SELECTION,
@@ -206,12 +205,12 @@ async function createScene(csv) {
         { xrInput: xr.input }
     );
 
-    console.log("Red → X-axis \nGreen → Y-axis \nBlue → Z-axis");
-    scene.debugLayer.show();
+    // console.log("Red → X-axis \nGreen → Y-axis \nBlue → Z-axis");
+    // scene.debugLayer.show();
 
-    window.addEventListener("resize", () => {
-        engine.resize();
-    });
+    // window.addEventListener("resize", () => {
+    //     engine.resize();
+    // });
 
     return scene;
 }
