@@ -1,0 +1,441 @@
+Name;Team;Salary;Position
+String;Category;Integer;Category
+Aquino, Greg;Arizona Diamondbacks;325000;Pitcher
+Bruney, Brian;Arizona Diamondbacks;322500;Pitcher
+Choate, Randy;Arizona Diamondbacks;550000;Pitcher
+Cintron, Alex;Arizona Diamondbacks;360000;Shortstop
+Clark, Tony;Arizona Diamondbacks;750000;First Baseman
+Clayton, Royce;Arizona Diamondbacks;1350000;Shortstop
+Counsell, Craig;Arizona Diamondbacks;1350000;Second Baseman
+Cruz Jr, Jose;Arizona Diamondbacks;4000000;Outfielder
+Estes, Shawn;Arizona Diamondbacks;2500000;Pitcher
+Gil, Jerry;Arizona Diamondbacks;318000;Shortstop
+Glaus, Troy;Arizona Diamondbacks;9000000;Third Baseman
+Gonzalez, Luis;Arizona Diamondbacks;10083333;Outfielder
+Gosling, Mike;Arizona Diamondbacks;317500;Pitcher
+Green, Shawn;Arizona Diamondbacks;7833333;First Baseman
+Halsey, Brad;Arizona Diamondbacks;317500;Pitcher
+Hill, Koyie;Arizona Diamondbacks;318000;Catcher
+Kata, Matthew;Arizona Diamondbacks;330000;Second Baseman
+Kiplove, Mike;Arizona Diamondbacks;825000;Pitcher
+Lyon, Brandon;Arizona Diamondbacks;330000;Pitcher
+McCracken, Quinton;Arizona Diamondbacks;750000;Outfielder
+Ortiz, Russ;Arizona Diamondbacks;7375000;Pitcher
+Snyder, Chris;Arizona Diamondbacks;318000;Catcher
+Terrero, Luis;Arizona Diamondbacks;321000;Outfielder
+Tracy, Chad;Arizona Diamondbacks;335000;Third Baseman
+Valverde, Jose;Arizona Diamondbacks;335000;Pitcher
+Vazquez, Javier;Arizona Diamondbacks;11000000;Pitcher
+Webb, Brandon;Arizona Diamondbacks;715000;Pitcher
+Bernero, Adam;Atlanta Braves;450000;Pitcher
+Betemit, Wilson;Atlanta Braves;316000;Shortstop
+Colon, Roman;Atlanta Braves;318500;Pitcher
+Estrada, Johnny;Atlanta Braves;460000;Catcher
+Franco, Julio;Atlanta Braves;1000000;First Baseman
+Furcal, Rafael;Atlanta Braves;5600000;Shortstop
+Giles, Marcus;Atlanta Braves;2350000;Second Baseman
+Gryboski, Kevin;Atlanta Braves;877500;Pitcher
+Hampton, Mike;Atlanta Braves;15125000;Pitcher
+Hudson, Tim;Atlanta Braves;6500000;Pitcher
+Jones, Andruw;Atlanta Braves;13000000;Outfielder
+Jones, Chipper;Atlanta Braves;16061802;Outfielder
+Jordan, Brian;Atlanta Braves;600000;Outfielder
+Kolb, Dan;Atlanta Braves;3400000;Pitcher
+Langerhans, Ryan;Atlanta Braves;316000;Outfielder
+LaRoche, Adam;Atlanta Braves;337500;First Baseman
+Martin, Tom;Atlanta Braves;1900000;Pitcher
+Mondesi, Raul;Atlanta Braves;1000000;Outfielder
+Orr, Pete;Atlanta Braves;300000;Second Baseman
+Perez, Eddie;Atlanta Braves;625000;Catcher
+Ramirez, Horacio;Atlanta Braves;370000;Pitcher
+Reitsma, Chris;Atlanta Braves;1650000;Pitcher
+Smoltz, John;Atlanta Braves;9000000;Pitcher
+Sosa, Jorge;Atlanta Braves;650000;Pitcher
+Thomson, John;Atlanta Braves;4250000;Pitcher
+Barrett, Michael;Chicago Cubs;3133333;Catcher
+Bartosh, Cliff;Chicago Cubs;318600;Pitcher
+Blanco, Henry;Chicago Cubs;1200000;Catcher
+Borowski, Joe;Chicago Cubs;2300000;Pitcher
+Burnitz, Jeromy;Chicago Cubs;4500000;Outfielder
+Dempster, Ryan;Chicago Cubs;2000000;Pitcher
+Dubois, Jason;Chicago Cubs;320000;Outfielder
+Fox, Chad;Chicago Cubs;575000;Pitcher
+Garciaparra, Nomar;Chicago Cubs;8250000;Shortstop
+Hairston, Jerry;Chicago Cubs;1800000;Shortstop
+Hawkins, LaTroy;Chicago Cubs;4500000;Pitcher
+Hollandsworth, Todd;Chicago Cubs;900000;Outfielder
+Lee, Derrek;Chicago Cubs;7666667;First Baseman
+Leicester, Jon;Chicago Cubs;300000;Pitcher
+Macias, Jose;Chicago Cubs;825000;Outfielder
+Maddus, Greg;Chicago Cubs;9000000;Pitcher
+Patterson, Corey;Chicago Cubs;2800000;Outfielder
+Perez, Meifi;Chicago Cubs;1000000;Shortstop
+Prior, Mark;Chicago Cubs;3550000;Pitcher
+Ramirez, Aramis;Chicago Cubs;8950000;Third Baseman
+Remlinger, Mike;Chicago Cubs;4233333;Pitcher
+Rusch, Glendon;Chicago Cubs;2000000;Pitcher
+Walker, Todd;Chicago Cubs;2500000;Second Baseman
+Wellemeyer, Todd;Chicago Cubs;329000;Pitcher
+Williamson, Scott;Chicago Cubs;500000;Pitcher
+Wood, Kerry;Chicago Cubs;9500000;Pitcher
+Wuertz, Michael;Chicago Cubs;322000;Pitcher
+Zambrano, Carlos;Chicago Cubs;3760000;Pitcher
+Aurilia, Rich;Cincinnati Reds;600000;Shortstop
+Belisle, Matt;Cincinnati Reds;316000;Pitcher
+Bong, Jung;Cincinnati Reds;340000;Pitcher
+Casey, Sean;Cincinnati Reds;7800000;First Baseman
+Claussen, Brandon;Cincinnati Reds;320000;Pitcher
+Cruz, Jacob;Cincinnati Reds;500000;Outfielder
+Dunn, Adam;Cincinnati Reds;4600000;Outfielder
+Freel, Ryan;Cincinnati Reds;405000;Second Baseman
+Graves, Danny;Cincinnati Reds;6250000;Pitcher
+Griffey Jr, Ken;Cincinnati Reds;12500000;Outfielder
+Hancock, Josh;Cincinnati Reds;327250;Pitcher
+Harang, Aaron;Cincinnati Reds;440000;Pitcher
+Hudson, Luke;Cincinnati Reds;318000;Pitcher
+Jimenez, D'Angelo;Cincinnati Reds;2870000;Second Baseman
+Kearns, Austin;Cincinnati Reds;930000;Outfielder
+LaRue, Jason;Cincinnati Reds;3000000;Catcher
+Lopez, Felipe;Cincinnati Reds;415000;Shortstop
+Machado, Anderson;Cincinnati Reds;316000;Shortstop
+Mercker, Kent;Cincinnati Reds;1250000;Pitcher
+Milton, Eric;Cincinnati Reds;5333333;Pitcher
+Olmedo, Ray;Cincinnati Reds;322000;Shortstop
+Ortiz, Ramon;Cincinnati Reds;3550000;Pitcher
+Pena, Wily Mo;Cincinnati Reds;440000;Outfielder
+Randa, Joe;Cincinnati Reds;2150000;Third Baseman
+Valentin, Javier;Cincinnati Reds;450000;Catcher
+Valentine, Joe;Cincinnati Reds;320000;Pitcher
+Wagner, Ryan;Cincinnati Reds;380000;Pitcher
+Weathers, David;Cincinnati Reds;1250000;Pitcher
+Weber, Ben;Cincinnati Reds;600000;Pitcher
+Wilson, Paul;Cincinnati Reds;3600000;Pitcher
+Amezaga, Alfredo;Colorado Rockies;320000;Shortstop
+Atkins, Garrett;Colorado Rockies;317000;Third Baseman
+Baker, Jeff;Colorado Rockies;316000;Third Baseman
+Barmes, Clint;Colorado Rockies;317000;Shortstop
+Carvajal, Marcos;Colorado Rockies;316000;Pitcher
+Chacon, Shawn;Colorado Rockies;2350000;Pitcher
+Closser, JD;Colorado Rockies;317000;Catcher
+Cook, Aaron;Colorado Rockies;326000;Pitcher
+Dohmann, Scott;Colorado Rockies;319000;Pitcher
+Francis, Jeff;Colorado Rockies;317000;Pitcher
+Fuentes, Brian;Colorado Rockies;328000;Pitcher
+Gonzalez, Luis;Colorado Rockies;324000;Shortstop
+Greene, Todd;Colorado Rockies;650000;Catcher
+Hawpe, Brad;Colorado Rockies;317000;Outfielder
+Helton, Todd;Colorado Rockies;12600000;First Baseman
+Holliday, Matt;Colorado Rockies;366000;Outfielder
+Jennings, Jason;Colorado Rockies;2400000;Pitcher
+Kennedy, Joe;Colorado Rockies;2200000;Pitcher
+Kim, Byung-hyun;Colorado Rockies;6575000;Pitcher
+Lopez, Javier;Colorado Rockies;321000;Pitcher
+Merricks, Matt;Colorado Rockies;316000;Pitcher
+Miles, Aaron;Colorado Rockies;326000;Second Baseman
+Mohr, Dustan;Colorado Rockies;950000;Outfielder
+Relaford, Desi;Colorado Rockies;950000;Second Baseman
+Simpson, Allan;Colorado Rockies;318000;Pitcher
+Speier, Ryan;Colorado Rockies;316000;Pitcher
+Sullivan, Cory;Colorado Rockies;316000;Outfielder
+Tsao, Chin-hui;Colorado Rockies;317000;Pitcher
+Silson, Preston;Colorado Rockies;12500000;Outfielder
+Wright, Jamey;Colorado Rockies;550000;Pitcher
+Aquila, Chris;Florida Marlins;316000;Outfielder
+Alfonseca, Antonio;Florida Marlins;300000;Pitcher
+Beckett, Josh;Florida Marlins;2400000;Pitcher
+Bump, Nate;Florida Marlins;360000;Pitcher
+Burnett, AJ;Florida Marlins;3650000;Pitcher
+Cabrera, Miguel;Florida Marlins;370000;Outfielder
+Castillo, Luis;Florida Marlins;5166667;Second Baseman
+Conine, Jeff;Florida Marlins;3000000;Outfielder
+Delgado, Carlos;Florida Marlins;4000000;First Baseman
+Easley, Damion;Florida Marlins;750000;Second Baseman
+Encarnacion, Juan;Florida Marlins;4435000;Outfielder
+Gonzalez, Alex;Florida Marlins;3400000;Shortstop
+Harris, Lenny;Florida Marlins;425000;Third Baseman
+Jones, Todd;Florida Marlins;1100000;Pitcher
+Leiter, Al;Florida Marlins;7000000;Pitcher
+Lo Duca, Paul;Florida Marlins;4666667;Catcher
+Lowell, Mike;Florida Marlins;7500000;Third Baseman
+Mecir, Jim;Florida Marlins;1100000;Pitcher
+Moehler, Brian;Florida Marlins;400000;Pitcher
+Mota, Guillermo;Florida Marlins;2600000;Pitcher
+Perisho, Matt;Florida Marlins;475000;Pitcher
+Pierre, Juan;Florida Marlins;3700000;Outfielder
+Riedling, John;Florida Marlins;750000;Pitcher
+Spooneybarger, Tim;Florida Marlins;350000;Pitcher
+Treanor, Matt;Florida Marlins;316000;Catcher
+Valdez, Ismael;Florida Marlins;1500000;Pitcher
+Willis, Dontrelle;Florida Marlins;378500;Pitcher
+Ausmus, Brad;Houston Astros;3000000;Catcher
+Backe, Brandon;Houston Astros;350000;Pitcher
+Bagwell, Jeff;Houston Astros;18000000;First Baseman
+Berkman, Lance;Houston Astros;10500000;Outfielder
+Biggio, Craig;Houston Astros;3000000;Outfielder
+Bruntlett, Eric;Houston Astros;335000;Shortstop
+Burke, Chris;Houston Astros;316000;Second Baseman
+Chavez, Raul;Houston Astros;360000;Catcher
+Clemens, Roger;Houston Astros;18000000;Pitcher
+Duckworth, Brandon;Houston Astros;500000;Pitcher
+Ensberg, Morgan;Houston Astros;450000;Third Baseman
+Everett, Adam;Houston Astros;445000;Shortstop
+Franco, John;Houston Astros;700000;Pitcher
+Harville, Chad;Houston Astros;365000;Pitcher
+Lamb, Mike;Houston Astros;1300000;Third Baseman
+Lane, Jason;Houston Astros;345000;Outfielder
+Lidge, Brad;Houston Astros;500000;Pitcher
+Oswalt, Roy;Houston Astros;5900000;Pitcher
+Palmeiro, Orlando;Houston Astros;800000;Outfielder
+Pettitte, Andy;Houston Astros;8500000;Pitcher
+Qualls, Chad;Houston Astros;316000;Pitcher
+Scott, Luke;Houston Astros;316000;Outfielder
+Springer, Russ;Houston Astros;550000;Pitcher
+Taveras, Willy;Houston Astros;316000;Outfielder
+Vizcaino, Jose;Houston Astros;1250000;Shortstop
+Wheeler, Dan;Houston Astros;365000;Pitcher
+Alvarez, Wilson;Los Angeles Dodgers;2000000;Pitcher
+Bako, Paul;Los Angeles Dodgers;650000;Catcher
+Bradley, Milton;Los Angeles Dodgers;2500000;Outfielder
+Brazoban, Yhency;Los Angeles Dodgers;319500;Pitcher
+Carlyle, Buddy;Los Angeles Dodgers;330000;Pitcher
+Carrara, Giovanni;Los Angeles Dodgers;500000;Pitcher
+Choi, Hee Seop;Los Angeles Dodgers;351500;First Baseman
+Dessens, Elmer;Los Angeles Dodgers;1300000;Pitcher
+Dreifort, Darren;Los Angeles Dodgers;13400000;Pitcher
+Drew, JD;Los Angeles Dodgers;9400000;Outfielder
+Erickson, Scott;Los Angeles Dodgers;525000;Pitcher
+Gagne, Eric;Los Angeles Dodgers;8000000;Pitcher
+Grabowski, Jason;Los Angeles Dodgers;327000;Third Baseman
+Houlton, DJ;Los Angeles Dodgers;316000;Pitcher
+Izturis, Cesar;Los Angeles Dodgers;2150000;Shortstop
+Kent, Jeff;Los Angeles Dodgers;7350000;Second Baseman
+Ledee, Ricky;Los Angeles Dodgers;1000000;Outfielder
+Lowe, Derek;Los Angeles Dodgers;7000000;Pitcher
+Penny, Brad;Los Angeles Dodgers;5100000;Pitcher
+Perez, Antonio;Los Angeles Dodgers;330000;Second Baseman
+Perez, Odalis;Los Angeles Dodgers;4500000;Pitcher
+Phillips, Jason;Los Angeles Dodgers;339000;Catcher
+Repko, Jason;Los Angeles Dodgers;316000;Outfielder
+Saenz, Olmedo;Los Angeles Dodgers;650000;First Baseman
+Sanchez, Duaner;Los Angeles Dodgers;332000;Pitcher
+Schmoll, Steve;Los Angeles Dodgers;316000;Pitcher
+Valentin, Jose;Los Angeles Dodgers;3500000;Shortstop
+Weaver, Jeff;Los Angeles Dodgers;9350000;Pitcher
+Werth, Jayson;Los Angeles Dodgers;337000;Outfielder
+Wunsch, Kelly;Los Angeles Dodgers;550000;Pitcher
+Adams, Mike;Milwaukee Brewers;331000;Pitcher
+Bottalico, Ricky;Milwaukee Brewers;800000;Pitcher
+Branyan, Russell;Milwaukee Brewers;800000;Third Baseman
+Capuano, Chris;Milwaukee Brewers;340000;Pitcher
+Cirillo, Jeff;Milwaukee Brewers;316000;Third Baseman
+Clark, Brady;Milwaukee Brewers;1150000;Outfielder
+Davis, Doug;Milwaukee Brewers;2050000;Pitcher
+de la Rosa, Jorge;Milwaukee Brewers;317000;Pitcher
+Glover, Gary;Milwaukee Brewers;390000;Pitcher
+Hall, Bill;Milwaukee Brewers;344000;Shortstop
+Hardy, JJ;Milwaukee Brewers;316000;Shortstop
+Helms, Wes;Milwaukee Brewers;2812500;Third Baseman
+Jenkins, Geoff;Milwaukee Brewers;7333333;Outfielder
+Lee, Carlos;Milwaukee Brewers;8000000;Outfielder
+Magruder, Chris;Milwaukee Brewers;325000;Outfielder
+Miller, Damian;Milwaukee Brewers;3250000;Catcher
+Moeller, Chad;Milwaukee Brewers;700000;Catcher
+Obermueller, Wes;Milwaukee Brewers;342000;Pitcher
+Overbay, Lyle;Milwaukee Brewers;446000;First Baseman
+Phelps, Tommy;Milwaukee Brewers;360000;Pitcher
+Santos, Victor;Milwaukee Brewers;420000;Pitcher
+Sheets, Ben;Milwaukee Brewers;6000000;Pitcher
+Spivey, Junior;Milwaukee Brewers;2125000;Second Baseman
+Turnbow, Derrek;Milwaukee Brewers;322000;Pitcher
+Wise, Matt;Milwaukee Brewers;345000;Pitcher
+Aybar, Manny;New York Mets;425000;Pitcher
+Beltran, Carlos;New York Mets;11571429;Outfielder
+Benson, Kris;New York Mets;5333333;Pitcher
+Cairo, Miguel;New York Mets;900000;Second Baseman
+Cameron, Mike;New York Mets;7333333;Outfielder
+Castro, Ramon;New York Mets;500000;Catcher
+DeJean, Mike;New York Mets;1150000;Pitcher
+Floyd, Cliff;New York Mets;6616856;Outfielder
+Fortunato, Bartolome;New York Mets;317000;Pitcher
+Glavine, Tom;New York Mets;10765608;Pitcher
+Heredia, Felix;New York Mets;1800000;Pitcher
+Hernandez, Roberto;New York Mets;650000;Pitcher
+Ishii, Kazuhisa;New York Mets;3575000;Pitcher
+Koo, Dae Sung;New York Mets;450000;Pitcher
+Looper, Braden;New York Mets;800000;Pitcher
+Martinez, Pedro;New York Mets;10875000;Pitcher
+Matsui, Kazuo;New York Mets;7033333;Shortstop
+Matthews, Mike;New York Mets;500000;Pitcher
+Mientkiewicz, Doug;New York Mets;3750000;First Baseman
+Piazza, Mike;New York Mets;16071429;Catcher
+Reyes, Jose;New York Mets;332000;Shortstop
+Trachsel, Steve;New York Mets;6782500;Pitcher
+Valent, Eric;New York Mets;332000;Outfielder
+Woodward, Chris;New York Mets;700000;Shortstop
+Wright, David;New York Mets;322500;Third Baseman
+Yates, Tyler;New York Mets;319500;Pitcher
+Zambrano, Victor;New York Mets;2100000;Pitcher
+Abreu, Bobby;Philadelphia Phillies;13100000;Outfielder
+Adams, Terry;Philadelphia Phillies;500000;Pitcher
+Bell, David;Philadelphia Phillies;4700000;Third Baseman
+Burrell, Pat;Philadelphia Phillies;7250000;Outfielder
+Cormier, Rheal;Philadelphia Phillies;2250000;Pitcher
+Floyd, Gavin;Philadelphia Phillies;316000;Pitcher
+Fultz, Aaron;Philadelphia Phillies;550000;Pitcher
+Lidle, Cory;Philadelphia Phillies;3000000;Pitcher
+Lieber, Jon;Philadelphia Phillies;5583333;Pitcher
+Lieberthal, Mike;Philadelphia Phillies;7500000;Catcher
+Liriano, Pedro;Philadelphia Phillies;316000;Pitcher
+Lofton, Kenny;Philadelphia Phillies;3100000;Outfielder
+Madson, Ryan;Philadelphia Phillies;350000;Pitcher
+Michaels, Jason;Philadelphia Phillies;825000;Outfielder
+Myers, Brett;Philadelphia Phillies;445000;Pitcher
+Offerman, Jose;Philadelphia Phillies;500000;First Baseman
+Padilla, Vicente;Philadelphia Phillies;3200000;Pitcher
+Perez, Tomas;Philadelphia Phillies;650000;Shortstop
+Polanco, Placido;Philadelphia Phillies;4600000;Shortstop
+Pratt, Todd;Philadelphia Phillies;750000;Catcher
+Rollins, Jimmy;Philadelphia Phillies;3850000;Shortstop
+Thome, Jim;Philadelphia Phillies;13166667;First Baseman
+Utley, Chase;Philadelphia Phillies;345000;Second Baseman
+Wagner, Billy;Philadelphia Phillies;9000000;Pitcher
+Wolf, Randy;Philadelphia Phillies;6625000;Pitcher
+Worrell, Tim;Philadelphia Phillies;3050000;Pitcher
+Bay, Jason;Pittsburgh Pirates;355000;Outfielder
+Burnett, Sean;Pittsburgh Pirates;321000;Pitcher
+Castillo, Jose;Pittsburgh Pirates;327000;Shortstop
+Cota, Humberto;Pittsburgh Pirates;324000;Catcher
+Fogg, Josh;Pittsburgh Pirates;2150000;Pitcher
+Gonzalez, Mike;Pittsburgh Pirates;330000;Pitcher
+Grabow, John;Pittsburgh Pirates;327000;Pitcher
+Hill, Bobby;Pittsburgh Pirates;326000;Shortstop
+Lawton, Matt;Pittsburgh Pirates;7750000;Outfielder
+Mackowiak, Rob;Pittsburgh Pirates;1500000;Second Baseman
+Meadows, Brian;Pittsburgh Pirates;1125000;Pitcher
+Mesa, Jose;Pittsburgh Pirates;2000000;Pitcher
+Perez, Oliver;Pittsburgh Pirates;381000;Pitcher
+Redman, Mark;Pittsburgh Pirates;4500000;Pitcher
+Redman, Tike;Pittsburgh Pirates;336500;Outfielder
+Ross, David;Pittsburgh Pirates;338500;Catcher
+Sanchez, Freddy;Pittsburgh Pirates;322000;Shortstop
+Santiago, Benito;Pittsburgh Pirates;2150000;Catcher
+Torres, Salomon;Pittsburgh Pirates;1100000;Pitcher
+Van Benschoten, John;Pittsburgh Pirates;316000;Pitcher
+Vogelsong, Ryan;Pittsburgh Pirates;332000;Pitcher
+Ward, Daryle;Pittsburgh Pirates;950000;First Baseman
+Wells, Kip;Pittsburgh Pirates;3175000;Pitcher
+White, Rick;Pittsburgh Pirates;475000;Pitcher
+Wigginton, Ty;Pittsburgh Pirates;342000;Third Baseman
+Silliams, Dave;Pittsburgh Pirates;330000;Pitcher
+Wilson, Craig;Pittsburgh Pirates;3000000;Catcher
+Wilson, Jack;Pittsburgh Pirates;3250000;Shortstop
+Asencio, Miguel;San Diego Padres;350000;Pitcher
+Blum, Geoff;San Diego Padres;575000;Third Baseman
+Burroughs, Sean;San Diego Padres;1675000;Third Baseman
+Eaton, Adam;San Diego Padres;3375000;Pitcher
+Giles, Brian;San Diego Padres;8333333;Outfielder
+Greene, Khalil;San Diego Padres;355000;Shortstop
+Guzman, Freddy;San Diego Padres;317000;Outfielder
+Hammond, Chris;San Diego Padres;750000;Pitcher
+Hernandez, Ramon;San Diego Padres;4312500;Catcher
+Hoffman, Trevor;San Diego Padres;5000000;Pitcher
+Hyzdu, Adam;San Diego Padres;375000;Outfielder
+Klesko, Ryan;San Diego Padres;9000000;Outfielder
+Lawrence, Brian;San Diego Padres;2375000;Pitcher
+Linebrink, Scott;San Diego Padres;910000;Pitcher
+Loretta, Mark;San Diego Padres;2750000;Second Baseman
+May, Darrell;San Diego Padres;3225000;Pitcher
+Nady, Xavier;San Diego Padres;488000;Outfielder
+Nevin, Phil;San Diego Padres;9625000;First Baseman
+Ojeda, Miguel;San Diego Padres;325000;Catcher
+Otsuka, Akinori;San Diego Padres;800000;Pitcher
+Peavy, Jake;San Diego Padres;750000;Pitcher
+Redding, Tim;San Diego Padres;750000;Pitcher
+Reyes, Dennys;San Diego Padres;550000;Pitcher
+Roberts, Dave;San Diego Padres;1350000;Outfielder
+Seanez, Rudy;San Diego Padres;550000;Pitcher
+Sweeney, Mark;San Diego Padres;575000;Outfielder
+Williams, Woody;San Diego Padres;3000000;Pitcher
+Young, Eric;San Diego Padres;850000;Second Baseman
+Alfonzo, Edgardo;San Francisco Giants;7500000;Third Baseman
+Alou, Moises;San Francisco Giants;7250000;Outfielder
+Benitez, Armando;San Francisco Giants;4966667;Pitcher
+Bonds, Barry;San Francisco Giants;22000000;Outfielder
+Brower, Jim;San Francisco Giants;1162500;Pitcher
+Christiansen, Jason;San Francisco Giants;1050000;Pitcher
+Cruz, Deivi;San Francisco Giants;800000;Shortstop
+Durham, Ray;San Francisco Giants;7200000;Second Baseman
+Ellison, Jason;San Francisco Giants;316500;Outfielder
+Eyre, Scott;San Francisco Giants;1540000;Pitcher
+Fassero, Jeff;San Francisco Giants;500000;Pitcher
+Feliz, Pedro;San Francisco Giants;2325000;Outfielder
+Grissom, Marquis;San Francisco Giants;2750000;Outfielder
+Herges, Matt;San Francisco Giants;1600000;Pitcher
+Lowry, Noah;San Francisco Giants;322500;Pitcher
+Matheny, Mike;San Francisco Giants;2000000;Catcher
+Rueter, Kirk;San Francisco Giants;7133333;Pitcher
+Schmidt, Jason;San Francisco Giants;8187500;Pitcher
+Snow, JT;San Francisco Giants;2000000;First Baseman
+Tomko, Brett;San Francisco Giants;2650000;Pitcher
+Torcato, Tony;San Francisco Giants;318500;Outfielder
+Torrealba, Yorvit;San Francisco Giants;715000;Catcher
+Tucker, Michael;San Francisco Giants;2000000;Outfielder
+Vizquel, Omar;San Francisco Giants;3250000;Shortstop
+Walker, Tyler;San Francisco Giants;326000;Pitcher
+Williams, Jerome;San Francisco Giants;336000;Pitcher
+Ankiel, Rick;St Louis Cardinals;400000;Outfielder
+Carpenter, Chris;St Louis Cardinals;2000000;Pitcher
+Cedeno, Roger;St Louis Cardinals;5500000;Outfielder
+Diaz, Einar;St Louis Cardinals;600000;Catcher
+Eckstein, David;St Louis Cardinals;2333333;Shortstop
+Edmonds, Jim;St Louis Cardinals;10333333;Outfielder
+Eldred, Cal;St Louis Cardinals;600000;Pitcher
+Flores, Randy;St Louis Cardinals;320000;Pitcher
+Grudzielanek, Mark;St Louis Cardinals;1000000;Second Baseman
+Isringhausen, Jason;St Louis Cardinals;7000000;Pitcher
+King, Ray;St Louis Cardinals;1850000;Pitcher
+Lincoln, Mike;St Louis Cardinals;360000;Pitcher
+Luna, Hector;St Louis Cardinals;320000;Shortstop
+Mabry, John;St Louis Cardinals;725000;Outfielder
+Marquis, Jason;St Louis Cardinals;3000000;Pitcher
+Molina, Yadier;St Louis Cardinals;323500;Catcher
+Morris, Matt;St Louis Cardinals;2500000;Pitcher
+Mulder, Mark;St Louis Cardinals;6050000;Pitcher
+Pujols, Albert;St Louis Cardinals;11000000;Third Baseman
+Reyes, Al;St Louis Cardinals;450000;Pitcher
+Rolen, Scott;St Louis Cardinals;11625000;Third Baseman
+Sanders, Reggie;St Louis Cardinals;4000000;Outfielder
+Suppan, Jeff;St Louis Cardinals;4000000;Pitcher
+Taguchi, So;St Louis Cardinals;550000;Outfielder
+Tavarez, Julian;St Louis Cardinals;2600000;Pitcher
+Walker, Larry;St Louis Cardinals;12666667;Outfielder
+Armas, Tony;Washington Nationals;2260000;Pitcher
+Ayala, Luis;Washington Nationals;363000;Pitcher
+Beltran, Francis;Washington Nationals;318500;Pitcher
+Bennett, Gary;Washington Nationals;750000;Catcher
+Blanco, Tony;Washington Nationals;316000;Second Baseman
+Carroll, Jamey;Washington Nationals;335000;Shortstop
+Castilla, Vinny;Washington Nationals;3000000;Third Baseman
+Church, Ryan;Washington Nationals;316000;Outfielder
+Cordero, Chad;Washington Nationals;346500;Pitcher
+Cordero, Wil;Washington Nationals;600000;Outfielder
+Davis, JJ;Washington Nationals;316500;Outfielder
+Day, Zach;Washington Nationals;357500;Pitcher
+Eischen, Joey;Washington Nationals;1040000;Pitcher
+Escobar, Alex;Washington Nationals;326000;Outfielder
+Guillen, Jose;Washington Nationals;3500000;Outfielder
+Guzman, Cristian;Washington Nationals;4200000;Shortstop
+Hernandez, Livan;Washington Nationals;8000000;Pitcher
+Horgan, Joe;Washington Nationals;319000;Pitcher
+Johnson, Nick;Washington Nationals;1450000;First Baseman
+Loaiza, Esteban;Washington Nationals;2900000;Pitcher
+Mateo, Henry;Washington Nationals;318000;Shortstop
+Ohka, Tomo;Washington Nationals;2750000;Pitcher
+Osuna, Antonio;Washington Nationals;800000;Pitcher
+Patterson, John;Washington Nationals;322500;Pitcher
+Schneider, Brian;Washington Nationals;2000000;Catcher
+Sledge, Terrmel;Washington Nationals;345000;Outfielder
+Tucker, TJ;Washington Nationals;657000;Pitcher
+Vargas, Claudio;Washington Nationals;325000;Pitcher
+Vidro, Jose;Washington Nationals;7000000;Second Baseman
+Wilkerson, Brad;Washington Nationals;3050000;Outfielder

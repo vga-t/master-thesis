@@ -112,11 +112,12 @@ export const twoToneConfig = {
 
 export class TwoToneVisualization {
     constructor(layout, { twoToneConfig }, scene) {
-        const { positionMatrix, dataArray } = layout.computeCellPositions();
+        const { positionMatrix, dataArray, columnMetadata } = layout.computeCellPositions();
         this.positionMatrix = positionMatrix;
         this.dataArray = dataArray;
         this.config = twoToneConfig;
         this.scene = scene;
+        this.layout = layout; // Store layout for metadata access
 
         this.cellWidth = layout.cellWidth;
         this.cellHeight = layout.cellHeight;
@@ -128,6 +129,7 @@ export class TwoToneVisualization {
             { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
+        this.basePlane.isVisible = true; // hide the base plane
 
         BABYLON.Effect.ShadersStore["twoToneVertexShader"] = `
             precision highp float;
@@ -162,7 +164,7 @@ export class TwoToneVisualization {
             varying vec4 vColor1;
             varying vec4 vColor2;
             void main(void) {
-                if (vUV.y > vSplit) {
+                if (vUV.x > vSplit) {
                     gl_FragColor = vColor1;
                 } else {
                     gl_FragColor = vColor2;
@@ -185,14 +187,43 @@ export class TwoToneVisualization {
         const splitArr = [];
         const color1Arr = [];
         const color2Arr = [];
+        const neutralColor = [0.5, 0.5, 0.5]; // Gray for constant columns
 
         for (let idx = 0; idx < this.dataArray.length; idx++) {
             const value = this.dataArray[idx];
-            const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteIndex);
+            const colIndex = idx % this.numCols;
+            const colKey = this.layout.columnKeys[colIndex];
+            const meta = this.layout.columnMetadata[colKey];
 
-            color1Arr.push(c1[0] / 255, c1[1] / 255, c1[2] / 255, 1);
-            color2Arr.push(c2[0] / 255, c2[1] / 255, c2[2] / 255, 1);
-            splitArr.push(splitRatio);
+            switch (meta.type) {
+                case 'numeric':
+                case 'date': {
+                    const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteIndex);
+                    color1Arr.push(c1[0] / 255, c1[1] / 255, c1[2] / 255, 1);
+                    color2Arr.push(c2[0] / 255, c2[1] / 255, c2[2] / 255, 1);
+                    splitArr.push(splitRatio);
+                    break;
+                }
+                case 'categorical': {
+                    const palette = this.config.colorList[paletteIndex];
+                    // Use normalized value to pick a color from the palette
+                    const categoryIndex = Math.round(value * (meta.categories.length - 1));
+                    const color = palette[categoryIndex % palette.length];
+                    // Use same color for c1 and c2 to create a solid fill
+                    color1Arr.push(color[0] / 255, color[1] / 255, color[2] / 255, 1);
+                    color2Arr.push(color[0] / 255, color[1] / 255, color[2] / 255, 1);
+                    splitArr.push(1.0); // Full bar
+                    break;
+                }
+                case 'constant':
+                default: {
+                    // Use a neutral color for constant data
+                    color1Arr.push(...neutralColor, 1);
+                    color2Arr.push(...neutralColor, 1);
+                    splitArr.push(1.0); // Full bar
+                    break;
+                }
+            }
         }
 
         this.basePlane.thinInstanceSetBuffer("matrix", this.positionMatrix, 16);

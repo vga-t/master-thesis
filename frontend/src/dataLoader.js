@@ -8,6 +8,7 @@ function loadCSV(url) {
       skipEmptyLines: true,
       complete: (results) => {
         resolve(results.data);
+        console.log(results.data[0]);
       },
       error: (error) => {
         console.error("Error parsing CSV:", error);
