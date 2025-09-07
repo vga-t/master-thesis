@@ -1,5 +1,7 @@
 import * as BABYLON from "babylonjs";
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
+import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
+
 
 
 import SceneManager from "./SceneManager.js";
@@ -10,9 +12,10 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: Math.PI * 0.5, radius: 35, height: 1800 });
+const layout = new LCVDSLayout(csvData, { arcAngle: Math.PI * 0.5, radius: 35, height: 1000 });
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
-heatMap.render();
+const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
+twoTone.render();
 
 
 

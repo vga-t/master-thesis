@@ -1,0 +1,203 @@
+import * as BABYLON from "babylonjs";
+import Color from "colorjs.io";
+
+
+export const twoToneConfig = {
+
+    minValue: 0,
+    maxValue: 1,
+    intervals: 8,
+    colorMapping(value, paletteIndex = 0) {
+        const palette = this.colorList[paletteIndex];
+        const A = (this.maxValue - this.minValue) / this.intervals;
+
+        const v = Math.max(this.minValue, Math.min(this.maxValue, value));
+        let i = Math.floor((v - this.minValue) / A);
+        if (i >= this.intervals) i = this.intervals - 1;
+
+        const splitRatio = (v - (this.minValue + A * i)) / A;
+
+        // Normalize here
+        const c1 = palette[i];
+        const c2 = palette[Math.min(i + 1, palette.length - 1)];
+
+        return { c1, c2, splitRatio };
+    }
+    ,
+
+    colorList: [
+        [[255, 255, 229],
+        [247, 252, 185],
+        [217, 240, 163],
+        [173, 221, 142],
+        [120, 198, 121],
+        [65, 171, 93],
+        [35, 132, 67],
+        [0, 104, 55],
+        [0, 69, 41]],
+
+        [[255, 247, 236],
+        [254, 232, 200],
+        [253, 212, 158],
+        [253, 187, 132],
+        [252, 141, 89],
+        [239, 101, 72],
+        [215, 48, 31],
+        [179, 0, 0],
+        [127, 0, 0]],
+
+        [[255, 247, 251],
+        [236, 231, 242],
+        [208, 209, 230],
+        [166, 189, 219],
+        [116, 169, 207],
+        [54, 144, 192],
+        [5, 112, 176],
+        [4, 90, 141],
+        [2, 56, 88]],
+
+        [[255, 245, 240],
+        [254, 224, 210],
+        [252, 187, 161],
+        [252, 146, 114],
+        [251, 106, 74],
+        [239, 59, 44],
+        [203, 24, 29],
+        [165, 15, 21],
+        [103, 0, 13]],
+
+        [[247, 252, 245],
+        [229, 245, 224],
+        [199, 233, 192],
+        [161, 217, 155],
+        [116, 196, 118],
+        [65, 171, 93],
+        [35, 139, 69],
+        [0, 109, 44],
+        [0, 68, 27]],
+
+        [[255, 245, 235],
+        [254, 230, 206],
+        [253, 208, 162],
+        [253, 174, 107],
+        [253, 141, 60],
+        [241, 105, 19],
+        [217, 72, 1],
+        [166, 54, 3],
+        [127, 39, 4]],
+
+        [[255, 255, 229],
+        [255, 247, 188],
+        [254, 227, 145],
+        [254, 196, 79],
+        [254, 153, 41],
+        [236, 112, 20],
+        [204, 76, 2],
+        [153, 52, 4],
+        [102, 37, 6]],
+
+        [[247, 251, 255],
+        [222, 235, 247],
+        [198, 219, 239],
+        [158, 202, 225],
+        [107, 174, 214],
+        [66, 146, 198],
+        [33, 113, 181],
+        [8, 81, 156],
+        [8, 48, 107]]
+
+    ]
+
+};
+
+export class TwoToneVisualization {
+    constructor(layout, { twoToneConfig }, scene) {
+        const { positionMatrix, dataArray } = layout.computeCellPositions();
+        this.positionMatrix = positionMatrix;
+        this.dataArray = dataArray;
+        this.config = twoToneConfig;
+        this.scene = scene;
+
+        this.cellWidth = layout.cellWidth;
+        this.cellHeight = layout.cellHeight;
+        this.numCols = layout.numCols;
+        this.numRows = layout.numRows;
+
+        this.basePlane = BABYLON.MeshBuilder.CreatePlane(
+            "basePlaneTwoTone",
+            { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            scene
+        );
+
+        BABYLON.Effect.ShadersStore["twoToneVertexShader"] = `
+            precision highp float;
+            attribute vec3 position;
+            attribute vec2 uv;
+            attribute vec4 world0;
+            attribute vec4 world1;
+            attribute vec4 world2;
+            attribute vec4 world3;
+            attribute float split;
+            attribute vec4 splitColor1;
+            attribute vec4 splitColor2;
+            uniform mat4 viewProjection;
+            varying vec2 vUV;
+            varying float vSplit;
+            varying vec4 vColor1;
+            varying vec4 vColor2;
+            void main(void) {
+                vUV = uv;
+                vSplit = split;
+                vColor1 = splitColor1;
+                vColor2 = splitColor2;
+                mat4 world = mat4(world0, world1, world2, world3);
+                gl_Position = viewProjection * world * vec4(position, 1.0);
+            }
+        `;
+
+        BABYLON.Effect.ShadersStore["twoToneFragmentShader"] = `
+            precision highp float;
+            varying vec2 vUV;
+            varying float vSplit;
+            varying vec4 vColor1;
+            varying vec4 vColor2;
+            void main(void) {
+                if (vUV.y > vSplit) {
+                    gl_FragColor = vColor1;
+                } else {
+                    gl_FragColor = vColor2;
+                }
+            }
+        `;
+
+        const shaderMat = new BABYLON.ShaderMaterial("twoToneMat", scene, {
+            vertex: "twoTone",
+            fragment: "twoTone"
+        }, {
+            attributes: ["position", "uv", "world0", "world1", "world2", "world3", "split", "splitColor1", "splitColor2"],
+            uniforms: ["viewProjection"]
+        });
+
+        this.basePlane.material = shaderMat;
+    }
+
+    render(paletteIndex = 0) {
+        const splitArr = [];
+        const color1Arr = [];
+        const color2Arr = [];
+
+        for (let idx = 0; idx < this.dataArray.length; idx++) {
+            const value = this.dataArray[idx];
+            const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteIndex);
+
+            color1Arr.push(c1[0] / 255, c1[1] / 255, c1[2] / 255, 1);
+            color2Arr.push(c2[0] / 255, c2[1] / 255, c2[2] / 255, 1);
+            splitArr.push(splitRatio);
+        }
+
+        this.basePlane.thinInstanceSetBuffer("matrix", this.positionMatrix, 16);
+        this.basePlane.thinInstanceSetBuffer("split", splitArr, 1);
+        this.basePlane.thinInstanceSetBuffer("splitColor1", color1Arr, 4);
+        this.basePlane.thinInstanceSetBuffer("splitColor2", color2Arr, 4);
+    }
+}
