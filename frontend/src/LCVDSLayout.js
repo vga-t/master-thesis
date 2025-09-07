@@ -1,11 +1,13 @@
 import * as BABYLON from "babylonjs"; // new import
 
 class LCVDSLayout {
-    constructor(csvData, { arcAngle, radius, height }) {
+    constructor(csvData, { arcAngle, radius, height, groundOffset = 10 }) { // added groundOffset param
         this.csvData = csvData;
         this.arcAngle = arcAngle;
         this.radius = radius;
         this.height = height;
+        this.groundOffset = groundOffset; // store groundOffset
+
         this.numRows = csvData.length;
         this.numCols = Object.keys(csvData[0]).length;
         this.positionMatrix = [];
@@ -118,11 +120,17 @@ class LCVDSLayout {
     // --------------------------------------------------------
 
     computeCellPositions() {
-
         const startAngle = -this.arcAngle / 2;
         const colStepAngle = this.arcAngle / this.numCols;
+        // Compute the Y position of the bottom row (last CSV row)
+        // In the new mapping, the CSV last row (index = numRows - 1) becomes the bottom.
+        const bottomRowY = ((this.numRows - 1 - (this.numRows - 1)) - this.numRows / 2 + 0.5) * this.cellHeight;
+        const yShift = this.groundOffset - bottomRowY;
+
         for (let row = 0; row < this.numRows; row++) {
             const rowData = this.csvData[row];
+            // Reverse the row index so that CSV row 0 is at the top.
+            const y = ((this.numRows - 1 - row) - this.numRows / 2 + 0.5) * this.cellHeight + yShift;
             for (let c = 0; c < this.numCols; c++) {
                 const key = this.columnKeys[c];
                 const originalValue = rowData[key];
@@ -131,7 +139,6 @@ class LCVDSLayout {
                 const cellAngle = startAngle + (c * colStepAngle) + (colStepAngle / 2);
                 const x = this.radius * Math.sin(cellAngle);
                 const z = this.radius * Math.cos(cellAngle) - this.radius;
-                const y = (row - this.numRows / 2 + 0.5) * this.cellHeight;
                 const scaling = new BABYLON.Vector3(1, 1, 1);
                 const rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(cellAngle, 0, 0);
                 const translation = new BABYLON.Vector3(x, y, z);
@@ -139,7 +146,7 @@ class LCVDSLayout {
                 this.positionMatrix.push(...composedMatrix.asArray());
 
                 this.rawDataArray.push(originalValue);
-                this.dataArray.push(normalizedValue); // keeps visuals compatible
+                this.dataArray.push(normalizedValue);
             }
         }
         return {
