@@ -1,26 +1,28 @@
 import * as BABYLON from "babylonjs"; // new import
 
 class LCVDSLayout {
-    constructor(csvData, { arcAngle, radius, height, groundOffset = 10 }) { // added groundOffset param
+    constructor(csvData, { arcAngle, radius, height, groundOffset = 10 }) {
         this.csvData = csvData;
         this.arcAngle = arcAngle;
         this.radius = radius;
         this.height = height;
-        this.groundOffset = groundOffset; // store groundOffset
-
-        this.numRows = csvData.length;
+        this.groundOffset = groundOffset;
+        console.log("first row:", csvData[0]);
+        this.numRows = csvData.length; // Exclude header row
         this.numCols = Object.keys(csvData[0]).length;
         this.positionMatrix = [];
         this.dataArray = [];
-        this.rawDataArray = [];            // store original (unnormalized) values
+        this.originalDataArray = [];
 
         this.arcLength = this.radius * this.arcAngle;
 
         this.cellWidth = this.arcLength / this.numCols;
         this.cellHeight = this.height / this.numRows;
         // --- added: infer column metadata & normalization functions ---
-        this.columnKeys = Object.keys(csvData[0]);
+        this.columnKeys = Object.keys(csvData[0]); // Array of Column names
+        console.log("Column Keys:", this.columnKeys);
         this.columnMetadata = this._inferColumnMetadata();
+        console.log("Column Metadata:", this.columnMetadata);
         // --------------------------------------------------------------
     }
 
@@ -28,10 +30,11 @@ class LCVDSLayout {
     _inferColumnMetadata() {
         const meta = {};
         for (const key of this.columnKeys) {
-            const values = this.csvData.map(r => r[key]);
+            const values = this.csvData.map(r => r[key]); // Skip header row
             const analyzed = this._analyzeColumn(values);
             meta[key] = analyzed;
         }
+        console.log("Inferred Column Metadata:", meta);
         return meta;
     }
 
@@ -127,10 +130,10 @@ class LCVDSLayout {
         const bottomRowY = ((this.numRows - 1 - (this.numRows - 1)) - this.numRows / 2 + 0.5) * this.cellHeight;
         const yShift = this.groundOffset - bottomRowY;
 
-        for (let row = 0; row < this.numRows; row++) {
+        for (let row = 1; row < this.csvData.length; row++) { // Start from 1 to skip header row
             const rowData = this.csvData[row];
             // Reverse the row index so that CSV row 0 is at the top.
-            const y = ((this.numRows - 1 - row) - this.numRows / 2 + 0.5) * this.cellHeight + yShift;
+            const y = ((this.numRows - 1 - (row - 1)) - this.numRows / 2 + 0.5) * this.cellHeight + yShift;
             for (let c = 0; c < this.numCols; c++) {
                 const key = this.columnKeys[c];
                 const originalValue = rowData[key];
@@ -145,14 +148,14 @@ class LCVDSLayout {
                 const composedMatrix = BABYLON.Matrix.Compose(scaling, rotationQuaternion, translation);
                 this.positionMatrix.push(...composedMatrix.asArray());
 
-                this.rawDataArray.push(originalValue);
+                this.originalDataArray.push(originalValue);
                 this.dataArray.push(normalizedValue);
             }
         }
         return {
             positionMatrix: this.positionMatrix,
             dataArray: this.dataArray,
-            rawDataArray: this.rawDataArray,
+            originalDataArray: this.originalDataArray,
             columnMetadata: this.columnMetadata
         };
     }
@@ -160,7 +163,7 @@ class LCVDSLayout {
     // --- helper to access cell values later (row/col) ---
     getCellValue(row, col, { normalized = true } = {}) {
         const idx = row * this.numCols + col;
-        return normalized ? this.dataArray[idx] : this.rawDataArray[idx];
+        return normalized ? this.dataArray[idx] : this.originalDataArray[idx];
     }
 }
 

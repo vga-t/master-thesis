@@ -12,16 +12,17 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 3.2, height: 1.5, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 5, height: 10, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
-twoTone.render(6);
+const bars = new BarsVisualization(layout, { barsConfig }, scene);
+twoTone.render();
 
 
 
 
-//scene.debugLayer.show();
+scene.debugLayer.show();
 
 
 // const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();

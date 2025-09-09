@@ -161,6 +161,7 @@ export class TwoToneVisualization {
         const color2Arr = [];
         const neutralColor = [0.5, 0.5, 0.5]; // Gray for constant columns
         const paletteList = this.config.colorList.slice(0, paletteCount);
+        console.log(`first element in dataArray: ${this.dataArray.slice(0, 18)}`);
         for (let idx = 0; idx < this.dataArray.length; idx++) {
             const value = this.dataArray[idx];
             const colIndex = idx % this.numCols;

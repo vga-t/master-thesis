@@ -39,7 +39,7 @@ class SceneManager {
             width: 500, subdivisions: 1
         }, this.scene);
 
-        ground.position.y = 0.01;
+        ground.position.y = .1;
 
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", this.scene);
         groundMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1); // Gray color
