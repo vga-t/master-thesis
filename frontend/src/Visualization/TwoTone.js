@@ -7,8 +7,7 @@ export const twoToneConfig = {
     minValue: 0,
     maxValue: 1,
     intervals: 8,
-    colorMapping(value, paletteIndex = 0) {
-        const palette = this.colorList[paletteIndex];
+    colorMapping(value, paletteList, colIndex) {
         const A = (this.maxValue - this.minValue) / this.intervals;
 
         const v = Math.max(this.minValue, Math.min(this.maxValue, value));
@@ -16,6 +15,7 @@ export const twoToneConfig = {
         if (i >= this.intervals) i = this.intervals - 1;
 
         const splitRatio = (v - (this.minValue + A * i)) / A;
+        const palette = paletteList[colIndex % paletteList.length];
 
         // Normalize here
         const c1 = palette[i];
@@ -183,29 +183,31 @@ export class TwoToneVisualization {
         this.basePlane.material = shaderMat;
     }
 
-    render(paletteIndex = 0) {
+    render(paletteCount = 5) {
         const splitArr = [];
         const color1Arr = [];
         const color2Arr = [];
         const neutralColor = [0.5, 0.5, 0.5]; // Gray for constant columns
-
+        const paletteList = this.config.colorList.slice(0, paletteCount);
         for (let idx = 0; idx < this.dataArray.length; idx++) {
             const value = this.dataArray[idx];
             const colIndex = idx % this.numCols;
             const colKey = this.layout.columnKeys[colIndex];
             const meta = this.layout.columnMetadata[colKey];
 
+
+
             switch (meta.type) {
                 case 'numeric':
                 case 'date': {
-                    const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteIndex);
+                    const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteList, colIndex);
                     color1Arr.push(c1[0] / 255, c1[1] / 255, c1[2] / 255, 1);
                     color2Arr.push(c2[0] / 255, c2[1] / 255, c2[2] / 255, 1);
                     splitArr.push(splitRatio);
                     break;
                 }
                 case 'categorical': {
-                    const palette = this.config.colorList[paletteIndex];
+                    const palette = paletteList[colIndex % paletteList.length];
                     // Use normalized value to pick a color from the palette
                     const categoryIndex = Math.round(value * (meta.categories.length - 1));
                     const color = palette[categoryIndex % palette.length];

@@ -16,12 +16,12 @@ const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 3.2
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
-twoTone.render();
+twoTone.render(4);
 
 
 
 
-scene.debugLayer.show();
+//scene.debugLayer.show();
 
 
 // const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
