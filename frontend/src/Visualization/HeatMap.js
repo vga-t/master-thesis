@@ -43,7 +43,7 @@ export class HeatMapVisualization {
             { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
-        this.basePlane.position = new BABYLON.Vector3(0, 3, 0);
+        // this.basePlane.position = new BABYLON.Vector3(0, 3, 0);
         this.basePlane.material = new BABYLON.StandardMaterial("planeMaterial", scene);
         // remove invisibility to show the heatmap
         // this.basePlane.isVisible = false;

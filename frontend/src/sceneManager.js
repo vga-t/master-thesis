@@ -20,10 +20,13 @@ class SceneManager {
     }
 
     setupCamera() {
-        this.camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(-173.63484490600206, 11.256337394162186, 58.70632204919238), this.scene);
+        this.camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(-8.06, 13.38, -96.64), this.scene);
         this.camera.attachControl(this.canvas, true);
-        this.camera.setTarget(new BABYLON.Vector3(-170.53427625384904, 5.705425371571549, 77.66875419526477));
-        this.camera.rotation = new BABYLON.Vector3(0.28123839653642263, 0.16207686419985148, 0);
+        this.camera.position = new BABYLON.Vector3(0.6, 0.5, -5.5);
+        this.camera.setTarget(new BABYLON.Vector3(-1.0, 5.1, 13.9));
+        this.camera.rotation = new BABYLON.Vector3(-0.2, -0.1, 0.0);
+
+
     }
 
     setupLight() {
@@ -35,6 +38,8 @@ class SceneManager {
             height: 500,
             width: 500, subdivisions: 1
         }, this.scene);
+
+        ground.position.y = 0.01;
 
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", this.scene);
         groundMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1); // Gray color

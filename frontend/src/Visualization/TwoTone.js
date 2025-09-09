@@ -129,7 +129,7 @@ export class TwoToneVisualization {
             { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
-        this.basePlane.isVisible = true; // hide the base plane
+
 
         BABYLON.Effect.ShadersStore["twoToneVertexShader"] = `
             precision highp float;

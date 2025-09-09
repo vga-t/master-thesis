@@ -4,7 +4,7 @@ import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js"
 import { barsConfig, BarsVisualization } from "./Visualization/bars.js";
 
 
-import SceneManager from "./SceneManager.js";
+import SceneManager from "./sceneManager.js";
 import loadCSV from "./dataLoader.js";
 import LCVDSLayout from "./LCVDSLayout.js";
 
@@ -12,7 +12,7 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: Math.PI, radius: 35, height: 25, groundOffset: 1 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 3.2, height: 1.5, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
@@ -20,7 +20,8 @@ twoTone.render();
 
 
 
-// scene.debugLayer.show();
+
+scene.debugLayer.show();
 
 
 // const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
