@@ -12,17 +12,50 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 5, height: 10, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 5, height: 5, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
 const bars = new BarsVisualization(layout, scene);
-bars.render();
+bars.render(6);
+twoTone.render(6);
+bars.basePlane.isVisible = false;
+twoTone.basePlane.isVisible = false;
+let currentVis = heatMap;
+currentVis.render(6);
 
 
+document.addEventListener("keypress", event => {
+    switch (event.key) {
+        case "1":
+            if (currentVis != heatMap) {
+                currentVis.basePlane.isVisible = false;
+                currentVis = heatMap;
+                currentVis.basePlane.isVisible = true;
+            }
+            break;
+        case "2":
+            if (currentVis != bars) {
+                currentVis.basePlane.isVisible = false;
+                currentVis = bars;
+                currentVis.basePlane.isVisible = true;
+            };
+            break;
+        case "3":
+            if (currentVis != twoTone) {
+                currentVis.basePlane.isVisible = false;
+                currentVis = twoTone;
+                currentVis.basePlane.isVisible = true;
+            };
+            break;
+        default:
+            alert("Press 1, 2, or 3 to switch visualization!");
+            break;
 
+    }
+})
 
-scene.debugLayer.show();
+// scene.debugLayer.show();
 
 
 // const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();

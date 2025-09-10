@@ -206,4 +206,8 @@ export class TwoToneVisualization {
         this.basePlane.thinInstanceSetBuffer("splitColor1", color1Arr, 4);
         this.basePlane.thinInstanceSetBuffer("splitColor2", color2Arr, 4);
     }
+
+    dispose() {
+        this.basePlane.dispose();
+    }
 }

@@ -29,11 +29,10 @@ export class HeatMapVisualization {
         const { positionMatrix, dataArray, columnMetadata } = layout.computeCellPositions();
         this.positionMatrix = positionMatrix;
         this.dataArray = dataArray;
-        this.config = heatMapConfig; // Store config
-        this.layout = layout; // Store layout for metadata
+        this.config = heatMapConfig; 
+        this.layout = layout; 
         this.colorMapping = heatMapConfig.colorMapping.bind(heatMapConfig);
         this.colorListLength = heatMapConfig.colorListLength;
-        // set cell dimensions from layout
         this.cellWidth = layout.cellWidth;
         this.cellHeight = layout.cellHeight;
         this.numCols = layout.numCols;
@@ -43,10 +42,7 @@ export class HeatMapVisualization {
             { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
-        // this.basePlane.position = new BABYLON.Vector3(0, 3, 0);
         this.basePlane.material = new BABYLON.StandardMaterial("planeMaterial", scene);
-        // remove invisibility to show the heatmap
-        // this.basePlane.isVisible = false;
     }
 
     render() {
@@ -88,5 +84,9 @@ export class HeatMapVisualization {
 
         this.basePlane.thinInstanceSetBuffer("matrix", this.positionMatrix, 16);
         this.basePlane.thinInstanceSetBuffer("color", colorsArr, 4);
+    }
+
+    dispose() {
+        this.basePlane.dispose();
     }
 }

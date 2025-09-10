@@ -1,4 +1,4 @@
-import * as BABYLON from "babylonjs"; 
+import * as BABYLON from "babylonjs";
 
 class LCVDSLayout {
     constructor(csvData, { arcAngle, radius, height, groundOffset = 10 }) {
@@ -8,7 +8,7 @@ class LCVDSLayout {
         this.height = height;
         this.groundOffset = groundOffset;
         console.log("first row:", csvData[0]);
-        this.numRows = csvData.length; 
+        this.numRows = csvData.length;
         this.numCols = Object.keys(csvData[0]).length;
         this.positionMatrix = [];
         this.dataArray = [];
@@ -16,17 +16,17 @@ class LCVDSLayout {
 
         this.arcLength = this.radius * this.arcAngle;
 
-        this.cellWidth = this.arcLength / this.numCols*0.99;
+        this.cellWidth = this.arcLength / this.numCols;
         this.cellHeight = this.height / this.numRows;
-        
-        this.columnKeys = Object.keys(csvData[0]); 
+
+        this.columnKeys = Object.keys(csvData[0]);
         console.log("Column Keys:", this.columnKeys);
         this.columnMetadata = this._inferColumnMetadata();
         console.log("Column Metadata:", this.columnMetadata);
-      
+
     }
 
-  
+
     _inferColumnMetadata() {
         const meta = {};
         for (const key of this.columnKeys) {
@@ -96,7 +96,7 @@ class LCVDSLayout {
         }
 
         if (type === "categorical") {
-            
+
             const freq = {};
             cleaned.forEach(v => { freq[v] = (freq[v] || 0) + 1; });
             const categories = Array.from(new Set(cleaned))
@@ -114,25 +114,21 @@ class LCVDSLayout {
             };
         }
 
-        // constant
         return {
             type: "constant",
             normalize: () => 0.5
         };
     }
-    // --------------------------------------------------------
 
     computeCellPositions() {
         const startAngle = -this.arcAngle / 2;
         const colStepAngle = this.arcAngle / this.numCols;
-        // Compute the Y position of the bottom row (last CSV row)
-        // In the new mapping, the CSV last row (index = numRows - 1) becomes the bottom.
+
         const bottomRowY = ((this.numRows - 1 - (this.numRows - 1)) - this.numRows / 2 + 0.5) * this.cellHeight;
         const yShift = this.groundOffset - bottomRowY;
 
-        for (let row = 1; row < this.csvData.length; row++) { // Start from 1 to skip header row
+        for (let row = 1; row < this.csvData.length; row++) {
             const rowData = this.csvData[row];
-            // Reverse the row index so that CSV row 0 is at the top.
             const y = ((this.numRows - 1 - (row - 1)) - this.numRows / 2 + 0.5) * this.cellHeight + yShift;
             for (let c = 0; c < this.numCols; c++) {
                 const key = this.columnKeys[c];
@@ -160,7 +156,6 @@ class LCVDSLayout {
         };
     }
 
-    // --- helper to access cell values later (row/col) ---
     getCellValue(row, col, { normalized = true } = {}) {
         const idx = row * this.numCols + col;
         return normalized ? this.dataArray[idx] : this.originalDataArray[idx];
