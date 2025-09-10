@@ -11,15 +11,16 @@ class SceneManager {
         this.light = null;
         this.camera = null;
         this.xrHelper = null;
+        this.scene.clearColor = new BABYLON.Color4(0, 0, 0, .8);
 
-        this.setupCamera();
-        this.setupLight();
-        this.setupXR();
-        this.runRenderLoop();
+        this._setupCamera();
+        this._setupLight();
+        this._setupXR();
+        this._runRenderLoop();
 
     }
 
-    setupCamera() {
+    _setupCamera() {
         this.camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(-8.06, 13.38, -96.64), this.scene);
         this.camera.attachControl(this.canvas, true);
         this.camera.position = new BABYLON.Vector3(0.6, 0.5, -5.5);
@@ -29,11 +30,11 @@ class SceneManager {
 
     }
 
-    setupLight() {
+    _setupLight() {
         this.light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), this.scene);
         this.light.intensity = 0.7;
     }
-    async setupXR() {
+    async _setupXR() {
         const ground = BABYLON.MeshBuilder.CreateGround("ground", {
             height: 500,
             width: 500, subdivisions: 1
@@ -50,7 +51,7 @@ class SceneManager {
 
     }
 
-    runRenderLoop() {
+    _runRenderLoop() {
         this.engine.runRenderLoop(() => {
             this.scene.render();
         });

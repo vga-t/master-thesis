@@ -89,7 +89,7 @@ export class TwoToneVisualization {
         this.dataArray = dataArray;
         this.config = twoToneConfig;
         this.scene = scene;
-        this.layout = layout; // Store layout for metadata access
+        this.layout = layout;
 
         this.cellWidth = layout.cellWidth;
         this.cellHeight = layout.cellHeight;
@@ -159,7 +159,7 @@ export class TwoToneVisualization {
         const splitArr = [];
         const color1Arr = [];
         const color2Arr = [];
-        const neutralColor = [0.5, 0.5, 0.5]; // Gray for constant columns
+        const neutralColor = [1, 1, 1];
         const paletteList = this.config.colorList.slice(0, paletteCount);
         console.log(`first element in dataArray: ${this.dataArray.slice(0, 18)}`);
         for (let idx = 0; idx < this.dataArray.length; idx++) {

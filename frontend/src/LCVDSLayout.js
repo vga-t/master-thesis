@@ -1,4 +1,4 @@
-import * as BABYLON from "babylonjs"; // new import
+import * as BABYLON from "babylonjs"; 
 
 class LCVDSLayout {
     constructor(csvData, { arcAngle, radius, height, groundOffset = 10 }) {
@@ -8,7 +8,7 @@ class LCVDSLayout {
         this.height = height;
         this.groundOffset = groundOffset;
         console.log("first row:", csvData[0]);
-        this.numRows = csvData.length; // Exclude header row
+        this.numRows = csvData.length; 
         this.numCols = Object.keys(csvData[0]).length;
         this.positionMatrix = [];
         this.dataArray = [];
@@ -16,21 +16,21 @@ class LCVDSLayout {
 
         this.arcLength = this.radius * this.arcAngle;
 
-        this.cellWidth = this.arcLength / this.numCols;
+        this.cellWidth = this.arcLength / this.numCols*0.99;
         this.cellHeight = this.height / this.numRows;
-        // --- added: infer column metadata & normalization functions ---
-        this.columnKeys = Object.keys(csvData[0]); // Array of Column names
+        
+        this.columnKeys = Object.keys(csvData[0]); 
         console.log("Column Keys:", this.columnKeys);
         this.columnMetadata = this._inferColumnMetadata();
         console.log("Column Metadata:", this.columnMetadata);
-        // --------------------------------------------------------------
+      
     }
 
-    // --- new: infer types & build normalization per column ---
+  
     _inferColumnMetadata() {
         const meta = {};
         for (const key of this.columnKeys) {
-            const values = this.csvData.map(r => r[key]); // Skip header row
+            const values = this.csvData.map(r => r[key]);
             const analyzed = this._analyzeColumn(values);
             meta[key] = analyzed;
         }
@@ -96,7 +96,7 @@ class LCVDSLayout {
         }
 
         if (type === "categorical") {
-            // Sort categories by frequency (descending), then alphabetically
+            
             const freq = {};
             cleaned.forEach(v => { freq[v] = (freq[v] || 0) + 1; });
             const categories = Array.from(new Set(cleaned))

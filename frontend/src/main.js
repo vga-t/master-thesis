@@ -1,7 +1,7 @@
 import * as BABYLON from "babylonjs";
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
-import { barsConfig, BarsVisualization } from "./Visualization/bars.js";
+import BarsVisualization from "./Visualization/bars.js";
 
 
 import SceneManager from "./sceneManager.js";
@@ -16,8 +16,8 @@ const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 5, 
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
-const bars = new BarsVisualization(layout, { barsConfig }, scene);
-twoTone.render();
+const bars = new BarsVisualization(layout, scene);
+bars.render();
 
 
 
