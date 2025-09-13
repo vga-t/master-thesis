@@ -1,4 +1,3 @@
-
 class SceneManager {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -6,12 +5,12 @@ class SceneManager {
         this.scene = new BABYLON.Scene(this.engine);
         this.light = null;
         this.camera = null;
-        this.xrHelper = null;
+        // this.xrHelper = null;
         this.scene.clearColor = new BABYLON.Color4(0, 0, 0, .8);
 
         this._setupCamera();
         this._setupLight();
-        this._setupXR();
+        // this._setupXR();
         this._runRenderLoop();
 
     }
@@ -30,7 +29,7 @@ class SceneManager {
         this.light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), this.scene);
         this.light.intensity = 0.7;
     }
-    async _setupXR() {
+    async setupXR() {
         const ground = BABYLON.MeshBuilder.CreateGround("ground", {
             height: 500,
             width: 500, subdivisions: 1
@@ -41,11 +40,16 @@ class SceneManager {
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", this.scene);
         groundMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1); // Gray color
         ground.material = groundMaterial;
-        this.xrHelper = await this.scene.createDefaultXRExperienceAsync({
+        const xrHelper = await this.scene.createDefaultXRExperienceAsync({
             floorMeshes: [ground]
         });
+        return xrHelper;
+
+
 
     }
+
+
 
     _runRenderLoop() {
         this.engine.runRenderLoop(() => {

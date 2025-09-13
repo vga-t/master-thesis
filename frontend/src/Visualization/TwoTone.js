@@ -3,25 +3,36 @@ import Color from "colorjs.io";
 
 
 export const twoToneConfig = {
-
     minValue: 0,
     maxValue: 1,
-    intervals: 8,
+    intervals: 4, // <-- adjust as you like
+
+    // <-- REPLACED:
     colorMapping(value, paletteList, colIndex) {
-        const A = (this.maxValue - this.minValue) / this.intervals;
+        const { minValue, maxValue, intervals } = this;
 
-        const v = Math.max(this.minValue, Math.min(this.maxValue, value));
-        let i = Math.floor((v - this.minValue) / A);
-        if (i >= this.intervals) i = this.intervals - 1;
+        // clamp input value
+        const v = Math.max(minValue, Math.min(maxValue, value));
+        // pick the original palette for this column
+        const orig = paletteList[colIndex % paletteList.length];
+        const P = orig.length;
 
-        const splitRatio = (v - (this.minValue + A * i)) / A;
-        const palette = paletteList[colIndex % paletteList.length];
+        // build a small palette of (intervals + 1) stops evenly spaced
+        const stops = [];
+        for (let j = 0; j <= intervals; j++) {
+            const idx = Math.round(j * (P - 1) / intervals);
+            stops.push(orig[idx]);
+        }
 
-        // Normalize here
-        const c1 = palette[i];
-        const c2 = palette[Math.min(i + 1, palette.length - 1)];
+        // figure out which segment we're in and the local t [0–1]
+        const scaled = (v - minValue) / (maxValue - minValue) * intervals;
+        let i = Math.floor(scaled);
+        if (i >= intervals) i = intervals - 1;
+        const t = scaled - i;
 
-        return { c1, c2, splitRatio };
+        const c1 = stops[i];
+        const c2 = stops[i + 1];
+        return { c1, c2, splitRatio: t };
     }
     ,
 

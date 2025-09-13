@@ -12,6 +12,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "@babylonjs/loaders": "^8.27.0",
     "babylonjs": "^8.16.3",
     "colorjs.io": "^0.5.2",
     "papaparse": "^5.5.3"

@@ -1,7 +1,8 @@
 import * as BABYLON from "babylonjs";
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
-import BarsVisualization from "./Visualization/bars.js";
+import { InteractionManager } from "../Interaction/InteractionManager.js";
+// import BarsVisualization from "./Visualization/bars.js";
 
 
 import SceneManager from "./sceneManager.js";
@@ -12,36 +13,30 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 5, height: 5, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 4, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
-const bars = new BarsVisualization(layout, scene);
-bars.render(6);
-twoTone.render(6);
-bars.basePlane.isVisible = false;
-twoTone.basePlane.isVisible = false;
-let currentVis = heatMap;
+const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
+// const bars = new BarsVisualization(layout, scene);
+// bars.render(6);
+heatMap.render(6);
+heatMap.basePlane.isVisible = false;
+let currentVis = twoTone;
 currentVis.render(6);
+const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper);
 
 
 document.addEventListener("keypress", event => {
     switch (event.key) {
-        case "1":
+        case "2":
             if (currentVis != heatMap) {
                 currentVis.basePlane.isVisible = false;
                 currentVis = heatMap;
                 currentVis.basePlane.isVisible = true;
             }
             break;
-        case "2":
-            if (currentVis != bars) {
-                currentVis.basePlane.isVisible = false;
-                currentVis = bars;
-                currentVis.basePlane.isVisible = true;
-            };
-            break;
-        case "3":
+        case "1":
             if (currentVis != twoTone) {
                 currentVis.basePlane.isVisible = false;
                 currentVis = twoTone;
@@ -49,7 +44,7 @@ document.addEventListener("keypress", event => {
             };
             break;
         default:
-            alert("Press 1, 2, or 3 to switch visualization!");
+            alert("Press 1 or 2 to switch visualization!");
             break;
 
     }
