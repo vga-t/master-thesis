@@ -2,6 +2,7 @@ import * as BABYLON from "babylonjs";
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
 import { InteractionManager } from "../Interaction/InteractionManager.js";
+
 // import BarsVisualization from "./Visualization/bars.js";
 
 
