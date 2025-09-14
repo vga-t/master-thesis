@@ -25,7 +25,8 @@ heatMap.render(6);
 heatMap.basePlane.isVisible = false;
 let currentVis = twoTone;
 currentVis.render(6);
-const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper);
+const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene);
+// interaction.addFocusContext();
 
 
 document.addEventListener("keypress", event => {
