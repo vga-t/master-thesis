@@ -1,5 +1,3 @@
-
-
 export class InteractionManager {
     constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
         this.xrHelper = xrHelper;
@@ -51,40 +49,49 @@ export class InteractionManager {
 
                     // helper to build a forward ray manually if pointerSelection forward ray unavailable
                     const buildForwardRay = (ctrl, length = 100) => {
-                        const pointer = ctrl.pointer || ctrl.grip || ctrl; // TransformNode
+                        const pointer = ctrl.pointer || ctrl.grip || ctrl;
                         if (!pointer.getAbsolutePosition) return null;
                         const origin = pointer.getAbsolutePosition();
-                        // forward is a getter vector3 in Babylon; clone to avoid mutation
                         const fwd = pointer.forward ? pointer.forward.clone() : new BABYLON.Vector3(0, 0, 1);
                         return new BABYLON.Ray(origin, fwd, length);
                     };
 
-                    triggerComponent.onButtonStateChangedObservable.add(() => {
-                        if (!(triggerComponent.changes.pressed && triggerComponent.pressed)) return;
-                        console.log("Right trigger pressed");
+                    let hoverObserver = null;
+                    let lastIndex = null;
 
+                    triggerComponent.onButtonStateChangedObservable.add(component => {
+                        // only react to state changes on the pressed flag
+                        if (!component.changes.pressed) return;
 
-
-
-                        let ray = null;
-                        // 1) Try Babylon’s XR pointer‐selection “mesh under pointer” (if feature exists)
-                        const ps = this.xrHelper.pointerSelection;
-                        if (ps && typeof ps.getForwardRay === 'function') {
-                            try {
-                                ray = ps.getForwardRay(rightController.uniqueId);
-                            } catch {  }
-                        }
-                        if (!ray) {
-                            ray = buildForwardRay(rightController);
-                        }
-                        if (!ray) {
-                            console.warn('Unable to construct forward ray for controller');
-                            return;
-                        }
-                        const pick = this.scene.pickWithRay(ray, mesh => mesh === this.twoTone.basePlane);
-                        if (pick && pick.hit) {
-                            const idx = pick.thinInstanceIndex ?? pick.instanceIndex;
-                            console.log("Selected thin-instance index (ray fallback):", idx);
+                        if (component.pressed) {
+                            // start continuous per-frame picking while held
+                            hoverObserver = this.scene.onBeforeRenderObservable.add(() => {
+                                let pickInfo = null;
+                                const ps = this.xrHelper.pointerSelection;
+                                if (ps && typeof ps.getMeshUnderPointer === 'function') {
+                                    pickInfo = ps.getMeshUnderPointer(rightController.uniqueId);
+                                }
+                                if (!pickInfo || !pickInfo.hit) {
+                                    const ray = buildForwardRay(rightController);
+                                    if (ray) {
+                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === this.twoTone.basePlane);
+                                    }
+                                }
+                                if (pickInfo && pickInfo.hit) {
+                                    const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
+                                    if (idx !== lastIndex) {
+                                        console.log("Hovering over instance #", idx);
+                                        lastIndex = idx;
+                                    }
+                                }
+                            });
+                        } else {
+                            // stop logging on release
+                            if (hoverObserver) {
+                                this.scene.onBeforeRenderObservable.remove(hoverObserver);
+                                hoverObserver = null;
+                                lastIndex = null;
+                            }
                         }
                     });
                 }
