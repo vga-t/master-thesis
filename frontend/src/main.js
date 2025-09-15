@@ -52,7 +52,7 @@ document.addEventListener("keypress", event => {
     }
 })
 
-// scene.debugLayer.show();
+scene.debugLayer.show();
 
 
 // const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();

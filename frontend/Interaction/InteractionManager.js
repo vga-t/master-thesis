@@ -1,4 +1,4 @@
-import { FocusContext } from "./FocusContext";
+
 
 export class InteractionManager {
     constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
@@ -63,22 +63,16 @@ export class InteractionManager {
                         if (!(triggerComponent.changes.pressed && triggerComponent.pressed)) return;
                         console.log("Right trigger pressed");
 
+
+
+
+                        let ray = null;
                         // 1) Try Babylon’s XR pointer‐selection “mesh under pointer” (if feature exists)
                         const ps = this.xrHelper.pointerSelection;
-                        let pickInfo = ps && ps.getMeshUnderPointer ? ps.getMeshUnderPointer(rightController.uniqueId) : null;
-
-                        if (pickInfo && pickInfo.hit && pickInfo.pickedMesh === this.twoTone.basePlane) {
-                            const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
-                            console.log("Selected thin-instance index:", idx);
-                            return;
-                        }
-
-                        // 2) Fallback: use pointerSelection forward ray if available
-                        let ray = null;
                         if (ps && typeof ps.getForwardRay === 'function') {
                             try {
                                 ray = ps.getForwardRay(rightController.uniqueId);
-                            } catch { /* ignore and build manually */ }
+                            } catch {  }
                         }
                         if (!ray) {
                             ray = buildForwardRay(rightController);

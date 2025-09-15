@@ -1,0 +1,7 @@
+function horizontalFocusPlusContext() {
+
+}
+
+function bifocal() {
+    
+}
