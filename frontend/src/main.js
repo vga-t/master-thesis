@@ -14,7 +14,7 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 4, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 10, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
@@ -24,7 +24,7 @@ const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
 heatMap.render(6);
 heatMap.basePlane.isVisible = false;
 let currentVis = twoTone;
-currentVis.render(6,5);
+currentVis.render(6, 5);
 const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene);
 // interaction.addFocusContext();
 
@@ -44,6 +44,14 @@ document.addEventListener("keypress", event => {
                 currentVis = twoTone;
                 currentVis.basePlane.isVisible = true;
             };
+            break;
+        case "h":
+        case "H":
+            interaction.setFisheyeAxis('column');
+            break;
+        case "v":
+        case "V":
+            interaction.setFisheyeAxis('row');
             break;
         default:
             alert("Press 1 or 2 to switch visualization!");

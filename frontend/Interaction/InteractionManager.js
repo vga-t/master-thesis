@@ -2,8 +2,10 @@ export class InteractionManager {
     constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
         this.xrHelper = xrHelper;
         this.scene = scene;
+        this.layout = layout;
         this.heatMap = heatMap;
         this.twoTone = twoTone;
+        this.fisheyeAxis = 'column'; // 'column' or 'row'
         this.heatMap.basePlane.isPickable = true;
         this.twoTone.basePlane.isPickable = true;
 
@@ -57,7 +59,46 @@ export class InteractionManager {
                     };
 
                     let hoverObserver = null;
-                    let lastIndex = null;
+                    let lastIndex = null; // thin instance index
+                    let fisheyeActive = false;
+                    const originalMatrix = this.layout.getOriginalPositionMatrix();
+
+                    const applyFisheye = (flatIndex) => {
+                        if (flatIndex == null) return;
+                        // parameters could be dynamic later (e.g., trigger pressure -> divisor)
+                        // Smaller divisors -> larger focused span (dominance is enforced in layout functions)
+                        const colDivisor = 12; // focused column spans 1/colDivisor of arc
+                        const rowDivisor = 2; // focused row spans 1/rowDivisor of vertical span
+                        const sigma = 1.4;     // neighborhood falloff
+                        const minFactor = 0.1; // min relative size for distant segments
+                        const edgeSafety = 0.94; // shrink a bit to avoid grazing
+                        let distorted;
+                        if (this.fisheyeAxis === 'column') {
+                            const focusCol = flatIndex % this.layout.numCols;
+                            distorted = this.layout.computeColumnFocusLayout(focusCol, colDivisor, sigma, minFactor, edgeSafety);
+                        } else {
+                            const focusRow = Math.floor(flatIndex / this.layout.numCols);
+                            distorted = this.layout.computeRowFocusLayout(focusRow, rowDivisor, sigma, minFactor, edgeSafety);
+                        }
+                        if (!distorted) return;
+                        if (this.heatMap && this.heatMap.basePlane) {
+                            this.heatMap.basePlane.thinInstanceSetBuffer("matrix", distorted, 16);
+                        }
+                        if (this.twoTone && this.twoTone.basePlane) {
+                            this.twoTone.basePlane.thinInstanceSetBuffer("matrix", distorted, 16);
+                        }
+                    };
+
+                    const restore = () => {
+                        if (!fisheyeActive) return;
+                        if (this.heatMap && this.heatMap.basePlane) {
+                            this.heatMap.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
+                        }
+                        if (this.twoTone && this.twoTone.basePlane) {
+                            this.twoTone.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
+                        }
+                        fisheyeActive = false;
+                    };
 
                     triggerComponent.onButtonStateChangedObservable.add(component => {
                         // only react to state changes on the pressed flag
@@ -74,24 +115,28 @@ export class InteractionManager {
                                 if (!pickInfo || !pickInfo.hit) {
                                     const ray = buildForwardRay(rightController);
                                     if (ray) {
-                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === this.twoTone.basePlane);
+                                        // try pick against whichever basePlane is currently visible; fallback to twoTone
+                                        const targetMesh = this.twoTone.basePlane.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
+                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
                                     }
                                 }
                                 if (pickInfo && pickInfo.hit) {
                                     const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
-                                    if (idx !== lastIndex) {
-                                        console.log("Hovering over instance #", idx);
+                                    if (idx !== lastIndex && idx != null) {
                                         lastIndex = idx;
+                                        applyFisheye(idx);
+                                        fisheyeActive = true;
                                     }
                                 }
                             });
                         } else {
-                            // stop logging on release
+                            // stop and restore on release
                             if (hoverObserver) {
                                 this.scene.onBeforeRenderObservable.remove(hoverObserver);
                                 hoverObserver = null;
-                                lastIndex = null;
                             }
+                            lastIndex = null;
+                            restore();
                         }
                     });
                 }
@@ -112,4 +157,13 @@ export class InteractionManager {
     }
 
 
+    setFisheyeAxis(axis) {
+        if (axis === 'column' || axis === 'row') {
+            this.fisheyeAxis = axis;
+            const originalMatrix = this.layout.getOriginalPositionMatrix();
+            if (this.heatMap && this.heatMap.basePlane) this.heatMap.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
+            if (this.twoTone && this.twoTone.basePlane) this.twoTone.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
+            console.log(`Fisheye axis switched to ${axis}`);
+        }
+    }
 }
