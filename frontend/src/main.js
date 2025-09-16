@@ -24,7 +24,7 @@ const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
 heatMap.render(6);
 heatMap.basePlane.isVisible = false;
 let currentVis = twoTone;
-currentVis.render(6);
+currentVis.render(6,5);
 const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene);
 // interaction.addFocusContext();
 

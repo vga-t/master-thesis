@@ -5,11 +5,11 @@ import Color from "colorjs.io";
 export const twoToneConfig = {
     minValue: 0,
     maxValue: 1,
-    intervals: 4, // <-- adjust as you like
+    // <-- adjust as you like
 
     // <-- REPLACED:
-    colorMapping(value, paletteList, colIndex) {
-        const { minValue, maxValue, intervals } = this;
+    colorMapping(value, paletteList, colIndex, intervals) {
+        const { minValue, maxValue } = this;
 
         // clamp input value
         const v = Math.max(minValue, Math.min(maxValue, value));
@@ -166,7 +166,7 @@ export class TwoToneVisualization {
         this.basePlane.material = shaderMat;
     }
 
-    render(paletteCount = 5) {
+    render(paletteCount = 5, intervals = 1) {
         const splitArr = [];
         const color1Arr = [];
         const color2Arr = [];
@@ -184,7 +184,7 @@ export class TwoToneVisualization {
             switch (meta.type) {
                 case 'numeric':
                 case 'date': {
-                    const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteList, colIndex);
+                    const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteList, colIndex, intervals);
                     color1Arr.push(c1[0] / 255, c1[1] / 255, c1[2] / 255, 1);
                     color2Arr.push(c2[0] / 255, c2[1] / 255, c2[2] / 255, 1);
                     splitArr.push(splitRatio);

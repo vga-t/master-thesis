@@ -120,40 +120,45 @@ class LCVDSLayout {
         };
     }
 
-    computeCellPositions() {
+    computeCellPositions(instanceIndex = null, foucsWidth = 5, foucsHeight = 5) {
+
         const startAngle = -this.arcAngle / 2;
         const colStepAngle = this.arcAngle / this.numCols;
 
         const bottomRowY = ((this.numRows - 1 - (this.numRows - 1)) - this.numRows / 2 + 0.5) * this.cellHeight;
         const yShift = this.groundOffset - bottomRowY;
+        if (instanceIndex == null) {
+            for (let row = 1; row < this.csvData.length; row++) {
+                const rowData = this.csvData[row];
+                const y = ((this.numRows - 1 - (row - 1)) - this.numRows / 2 + 0.5) * this.cellHeight + yShift;
+                for (let c = 0; c < this.numCols; c++) {
+                    const key = this.columnKeys[c];
+                    const originalValue = rowData[key];
+                    const normalizedValue = this.columnMetadata[key].normalize(originalValue);
 
-        for (let row = 1; row < this.csvData.length; row++) {
-            const rowData = this.csvData[row];
-            const y = ((this.numRows - 1 - (row - 1)) - this.numRows / 2 + 0.5) * this.cellHeight + yShift;
-            for (let c = 0; c < this.numCols; c++) {
-                const key = this.columnKeys[c];
-                const originalValue = rowData[key];
-                const normalizedValue = this.columnMetadata[key].normalize(originalValue);
+                    const cellAngle = startAngle + (c * colStepAngle) + (colStepAngle / 2);
+                    const x = this.radius * Math.sin(cellAngle);
+                    const z = this.radius * Math.cos(cellAngle) - this.radius;
+                    const scaling = new BABYLON.Vector3(1, 1, 1);
+                    const rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(cellAngle, 0, 0);
+                    const translation = new BABYLON.Vector3(x, y, z);
+                    const composedMatrix = BABYLON.Matrix.Compose(scaling, rotationQuaternion, translation);
+                    this.positionMatrix.push(...composedMatrix.asArray());
 
-                const cellAngle = startAngle + (c * colStepAngle) + (colStepAngle / 2);
-                const x = this.radius * Math.sin(cellAngle);
-                const z = this.radius * Math.cos(cellAngle) - this.radius;
-                const scaling = new BABYLON.Vector3(1, 1, 1);
-                const rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(cellAngle, 0, 0);
-                const translation = new BABYLON.Vector3(x, y, z);
-                const composedMatrix = BABYLON.Matrix.Compose(scaling, rotationQuaternion, translation);
-                this.positionMatrix.push(...composedMatrix.asArray());
-
-                this.originalDataArray.push(originalValue);
-                this.dataArray.push(normalizedValue);
+                    this.originalDataArray.push(originalValue);
+                    this.dataArray.push(normalizedValue);
+                }
             }
+            return {
+                positionMatrix: this.positionMatrix,
+                dataArray: this.dataArray,
+                originalDataArray: this.originalDataArray,
+                columnMetadata: this.columnMetadata
+            };
         }
-        return {
-            positionMatrix: this.positionMatrix,
-            dataArray: this.dataArray,
-            originalDataArray: this.originalDataArray,
-            columnMetadata: this.columnMetadata
-        };
+        else {
+
+        }
     }
 
     getCellValue(row, col, { normalized = true } = {}) {
