@@ -23,8 +23,8 @@ export class CurvedHeatMapVisualization {
         this.arcLength = this.radius * this.arcAngle;
 
         // Build a ground (XZ) with sufficient subdivisions; then curve it along X and lift Z -> Y
-        const subX = Math.max(this.numCols, 64);
-        const subY = Math.max(this.visualRows, 8);
+        const subX = Math.max(this.numCols, 256);
+        const subY = Math.max(this.visualRows, 64);
         this.mesh = BABYLON.MeshBuilder.CreateGround("curvedHeatPlane", {
             width: this.arcLength,
             height: this.visualHeight,
@@ -38,14 +38,14 @@ export class CurvedHeatMapVisualization {
 
     _curvePlaneGeometry() {
         const mesh = this.mesh;
-    const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+        const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
         const indices = mesh.getIndices();
-    const w = this.arcLength;
-    const h = this.visualHeight;
+        const w = this.arcLength;
+        const h = this.visualHeight;
 
-    // Center so bottom edge = groundOffset + 0.5*cellHeight and top edge = groundOffset + (visualRows + 0.5)*cellHeight
-    // centerY = groundOffset + (visualRows/2 + 0.5)*cellHeight
-    const centerYOffset = this.layout.groundOffset + (this.visualRows / 2 + 0.5) * this.cellHeight;
+        // Center so bottom edge = groundOffset + 0.5*cellHeight and top edge = groundOffset + (visualRows + 0.5)*cellHeight
+        // centerY = groundOffset + (visualRows/2 + 0.5)*cellHeight
+        const centerYOffset = this.layout.groundOffset + (this.visualRows / 2 + 0.5) * this.cellHeight;
 
         // Reposition each vertex from straight XZ ground to cylinder segment along X; map Z -> vertical Y
         for (let i = 0; i < positions.length; i += 3) {
@@ -148,11 +148,76 @@ export class CurvedHeatMapVisualization {
         texture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
         this._dataTexture = texture;
 
-        // Use emissive to make it independent of scene lighting
-        const mat = new BABYLON.StandardMaterial("curvedHeatMat", this.scene);
-        mat.emissiveTexture = texture;
+        // Shader material to allow optional cartesian distortion during sampling
+        BABYLON.Effect.ShadersStore["curvedHeatVertexShader"] = `
+            precision highp float;
+            attribute vec3 position;
+            attribute vec2 uv;
+            uniform mat4 worldViewProjection;
+            varying vec2 vUV;
+            void main() {
+                vUV = uv;
+                gl_Position = worldViewProjection * vec4(position, 1.0);
+            }
+        `;
+        BABYLON.Effect.ShadersStore["curvedHeatFragmentShader"] = `
+            precision highp float;
+            varying vec2 vUV;
+            uniform sampler2D texData;
+            uniform float uCols;
+            uniform float uRows;
+            uniform float uEnableCartesian;
+            uniform float uFocusCol;
+            uniform float uFocusRow;
+            uniform float uAlpha;
+            uniform float uD;
+            float distort1D_cart(float x, float focus, float D) {
+                float dnorm = abs(x - focus);
+                if (dnorm < 1e-6) return focus;
+                float Dmax = (x < focus) ? focus : (1.0 - focus);
+                // Pull sample coordinates toward focus near pointer: new distance = dnorm * scale (scale in 0..1)
+                float scale = (D + 1.0) / (D + (Dmax / dnorm));
+                float signv = sign(x - focus);
+                float x2 = focus + signv * (dnorm * scale);
+                return clamp(x2, 0.0, 1.0);
+            }
+            float distort1D_pow(float x, float focus, float alpha) {
+                float d = x - focus;
+                float ad = abs(d);
+                float s = sign(d);
+                float nd = s * pow(ad, alpha);
+                return clamp(focus + nd, 0.0, 1.0);
+            }
+            float distort1D(float x, float focus, float alpha, float D) {
+                return (D > 0.0) ? distort1D_cart(x, focus, D) : distort1D_pow(x, focus, alpha);
+            }
+            void main() {
+                float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uAlpha, uD) : vUV.x;
+                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uAlpha, uD) : vUV.y;
+                // sample per-cell center after distortion to avoid bleeding
+                vec2 cellCoord = vec2(floor(ux * uCols), floor(vy * uRows));
+                vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
+                gl_FragColor = texture2D(texData, uvCell);
+            }
+        `;
+        const mat = new BABYLON.ShaderMaterial("curvedHeatMat", this.scene, {
+            vertex: "curvedHeat",
+            fragment: "curvedHeat"
+        }, {
+            attributes: ["position", "uv"],
+            uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uAlpha", "uD"],
+            samplers: ["texData"]
+        });
         mat.disableLighting = true;
         mat.backFaceCulling = false;
+        mat.setTexture("texData", texture);
+        mat.setFloat("uCols", this.numCols);
+        mat.setFloat("uRows", this.visualRows);
+        mat.setFloat("uEnableCartesian", 0.0);
+        mat.setFloat("uFocusCol", 0.5);
+        mat.setFloat("uFocusRow", 0.5);
+        mat.setFloat("uAlpha", 0.6);
+        mat.setFloat("uD", 3.5);
         this.mesh.material = mat;
         // Ensure UVs run U: left->right, V: top->bottom; CreateGround already sets that convention.
     }
@@ -166,6 +231,27 @@ export class CurvedHeatMapVisualization {
     dispose() {
         if (this.mesh) this.mesh.dispose();
         if (this._dataTexture) this._dataTexture.dispose();
+    }
+
+    // Cartesian distortion API to align with CurvedTwoTone
+    setCartesianEnabled(enabled) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) mat.setFloat("uEnableCartesian", enabled ? 1.0 : 0.0);
+    }
+    setCartesianFocus(colNorm, rowNorm) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) {
+            mat.setFloat("uFocusCol", Math.max(0, Math.min(1, colNorm)));
+            mat.setFloat("uFocusRow", Math.max(0, Math.min(1, rowNorm)));
+        }
+    }
+    setCartesianAlpha(alpha) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) mat.setFloat("uAlpha", Math.max(0.05, Math.min(0.95, alpha)));
+    }
+    setCartesianD(d) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) mat.setFloat("uD", Math.max(0.1, d));
     }
 }
 

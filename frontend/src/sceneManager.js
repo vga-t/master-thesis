@@ -10,7 +10,7 @@ class SceneManager {
 
         this._setupCamera();
         this._setupLight();
-        // this._setupXR();
+
         this._runRenderLoop();
 
     }

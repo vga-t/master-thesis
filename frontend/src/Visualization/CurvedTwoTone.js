@@ -83,9 +83,39 @@ export class CurvedTwoToneVisualization {
             uniform sampler2D texC2;
             uniform float uCols;
             uniform float uRows;
+            uniform float uEnableCartesian; // 0 or 1
+            uniform float uFocusCol; // normalized [0,1]
+            uniform float uFocusRow; // normalized [0,1]
+            uniform float uAlpha;     // legacy exponent (kept for compatibility, not used if uD>0)
+            uniform float uD;         // degree of magnification (>=1). Higher -> narrower focus, stronger lens
+
+            // Degree-based cartesian lens inspired by provided 2D implementation
+            float distort1D_cart(float x, float focus, float D) {
+                float dnorm = abs(x - focus);
+                if (dnorm < 1e-6) return focus;
+                float Dmax = (x < focus) ? focus : (1.0 - focus);
+                // Pull sample coordinates toward focus near pointer: new distance = dnorm * scale (scale in 0..1)
+                float scale = (D + 1.0) / (D + (Dmax / dnorm));
+                float signv = sign(x - focus);
+                float x2 = focus + signv * (dnorm * scale);
+                return clamp(x2, 0.0, 1.0);
+            }
+            float distort1D_pow(float x, float focus, float alpha) {
+                float d = x - focus;
+                float ad = abs(d);
+                float s = sign(d);
+                float nd = s * pow(ad, alpha);
+                return clamp(focus + nd, 0.0, 1.0);
+            }
+            float distort1D(float x, float focus, float alpha, float D) {
+                return (D > 0.0) ? distort1D_cart(x, focus, D) : distort1D_pow(x, focus, alpha);
+            }
             void main() {
                 // Centered sampling per cell to avoid neighbor bleeding
-                vec2 cellCoord = vec2(floor(vUV.x * uCols), floor(vUV.y * uRows));
+                float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uAlpha, uD) : vUV.x;
+                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uAlpha, uD) : vUV.y;
+
+                vec2 cellCoord = vec2(floor(ux * uCols), floor(vy * uRows));
                 vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
 
                 vec4 s = texture2D(texSplit, uvCell);
@@ -93,7 +123,7 @@ export class CurvedTwoToneVisualization {
                 vec4 c1 = texture2D(texC1, uvCell);
                 vec4 c2 = texture2D(texC2, uvCell);
                 // Compute local U within the current cell (so split acts per cell, like instanced planes)
-                float cellU = fract(vUV.x * uCols);
+                float cellU = fract(ux * uCols);
                 gl_FragColor = (cellU > split) ? c1 : c2;
             }
         `;
@@ -103,17 +133,22 @@ export class CurvedTwoToneVisualization {
             fragment: "curvedTwoTone"
         }, {
             attributes: ["position", "uv"],
-            uniforms: ["worldViewProjection", "uCols", "uRows"],
+            uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uAlpha", "uD"],
             samplers: ["texSplit", "texC1", "texC2"]
         });
         mat.backFaceCulling = false;
         mat.disableLighting = true;
         mat.setFloat("uCols", this.numCols);
         mat.setFloat("uRows", this.visualRows);
+        mat.setFloat("uEnableCartesian", 0.0);
+        mat.setFloat("uFocusCol", 0.5);
+        mat.setFloat("uFocusRow", 0.5);
+        mat.setFloat("uAlpha", 0.6);
+        mat.setFloat("uD", 3.5);
         this.mesh.material = mat;
     }
 
-    render(paletteCount = 5, intervals = 1) {
+    render(paletteCount = 5, intervals = 3) {
         // Build/refresh textures consistent with TwoTone.js
         const width = this.numCols;
         const height = this.visualRows;
@@ -198,6 +233,27 @@ export class CurvedTwoToneVisualization {
         if (this._texSplit) this._texSplit.dispose();
         if (this._texC1) this._texC1.dispose();
         if (this._texC2) this._texC2.dispose();
+    }
+
+    // API to control cartesian distortion
+    setCartesianEnabled(enabled) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) mat.setFloat("uEnableCartesian", enabled ? 1.0 : 0.0);
+    }
+    setCartesianFocus(colNorm, rowNorm) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) {
+            mat.setFloat("uFocusCol", Math.max(0, Math.min(1, colNorm)));
+            mat.setFloat("uFocusRow", Math.max(0, Math.min(1, rowNorm)));
+        }
+    }
+    setCartesianAlpha(alpha) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) mat.setFloat("uAlpha", Math.max(0.05, Math.min(0.95, alpha)));
+    }
+    setCartesianD(d) {
+        const mat = this.mesh?.material;
+        if (mat && mat.setFloat) mat.setFloat("uD", Math.max(0.1, d));
     }
 }
 

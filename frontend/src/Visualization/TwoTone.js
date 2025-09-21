@@ -166,7 +166,7 @@ export class TwoToneVisualization {
         this.basePlane.material = shaderMat;
     }
 
-    render(paletteCount = 5, intervals = 1) {
+    render(paletteCount = 5, intervals = 4) {
         const splitArr = [];
         const color1Arr = [];
         const color2Arr = [];

@@ -2,10 +2,10 @@ import * as BABYLON from "babylonjs";
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
 import CurvedHeatMapVisualization from "./Visualization/CurvedHeatMap.js";
 import CurvedTwoToneVisualization from "./Visualization/CurvedTwoTone.js";
+import CartesianDistortionController from "../Interaction/CartesianDistortion.js";
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
 import { InteractionManager } from "../Interaction/InteractionManager.js";
 
-// import BarsVisualization from "./Visualization/bars.js";
 
 
 import SceneManager from "./sceneManager.js";
@@ -17,21 +17,23 @@ const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
 const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 10, groundOffset: 0.5 });
-console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
+console.log("Column metadata:", layout.columnMetadata);
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedTwoTone = new CurvedTwoToneVisualization(layout, { twoToneConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
 const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
-// const bars = new BarsVisualization(layout, scene);
-// bars.render(6);
+const maxTextureSize = scene.getEngine().getCaps().maxTextureSize;
+console.log("Max texture size supported:", maxTextureSize);
 heatMap.render(6);
 heatMap.basePlane.isVisible = false;
 curvedHeat.mesh.isVisible = false;
 curvedTwoTone.mesh.isVisible = false;
 let currentVis = twoTone;
+// Centralized cartesian distortion controller for curved visualizations
+const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
 currentVis.render(6, 5);
-const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene);
+const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
 // interaction.addFocusContext();
 
 
@@ -67,10 +69,35 @@ document.addEventListener("keypress", event => {
                 if (currentVis.mesh) currentVis.mesh.isVisible = false;
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
                 // Ensure textures are baked before showing (match TwoTone defaults used below)
-                curvedTwoTone.render(6, 5);
+                curvedTwoTone.render(6, 1);
                 currentVis = curvedTwoTone;
                 currentVis.mesh.isVisible = true;
             }
+            break;
+        case "c":
+        case "C":
+            cartesian.toggle();
+            cartesian.setFocus(0.5, 0.5);
+            break;
+        case "w":
+        case "W": // increase lens degree D (narrower, stronger)
+            cartesian.nudgeD(0.5);
+            console.log("Cartesian D:", cartesian.D);
+            break;
+        case "q":
+        case "Q": // decrease lens degree D
+            cartesian.nudgeD(-0.5);
+            console.log("Cartesian D:", cartesian.D);
+            break;
+        case "b":
+        case "B": // increase alpha for pow model (if D<=0)
+            cartesian.setAlpha(cartesian.alpha + 0.05);
+            console.log("Cartesian alpha:", cartesian.alpha);
+            break;
+        case "A":
+        case "a": // decrease alpha
+            cartesian.setAlpha(cartesian.alpha - 0.05);
+            console.log("Cartesian alpha:", cartesian.alpha);
             break;
         case "h":
         case "H":

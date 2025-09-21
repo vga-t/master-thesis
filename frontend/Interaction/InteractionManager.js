@@ -1,16 +1,31 @@
+import * as BABYLON from "babylonjs";
+
 export class InteractionManager {
-    constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
+    constructor(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene) {
         this.xrHelper = xrHelper;
         this.scene = scene;
         this.layout = layout;
         this.heatMap = heatMap;
         this.twoTone = twoTone;
+        this.curvedHeat = curvedHeat;
+        this.curvedTwoTone = curvedTwoTone;
+        this.cartesian = cartesian; // optional controller
         this.fisheyeAxis = 'column'; // 'column' or 'row'
-        this.heatMap.basePlane.isPickable = true;
-        this.twoTone.basePlane.isPickable = true;
 
-        this.heatMap.basePlane.thinInstanceEnablePicking = true;
-        this.twoTone.basePlane.thinInstanceEnablePicking = true;
+        if (this.heatMap?.basePlane) {
+            this.heatMap.basePlane.isPickable = true;
+            this.heatMap.basePlane.thinInstanceEnablePicking = true;
+        }
+
+        if (this.twoTone?.basePlane) {
+            this.twoTone.basePlane.isPickable = true;
+            this.twoTone.basePlane.thinInstanceEnablePicking = true;
+        }
+
+        this.curvedHeat?.mesh && (this.curvedHeat.mesh.isPickable = true);
+        this.curvedTwoTone?.mesh && (this.curvedTwoTone.mesh.isPickable = true);
+
+
 
         // this.leftController = null;
         // this.rightController = null;
@@ -61,6 +76,7 @@ export class InteractionManager {
                     let hoverObserver = null;
                     let lastIndex = null; // thin instance index
                     let fisheyeActive = false;
+                    let cartesianActive = false;
                     const originalMatrix = this.layout.getOriginalPositionMatrix();
 
                     const applyFisheye = (flatIndex) => {
@@ -100,6 +116,13 @@ export class InteractionManager {
                         fisheyeActive = false;
                     };
 
+                    const disableCartesian = () => {
+                        if (this.cartesian && cartesianActive) {
+                            this.cartesian.setEnabled(false);
+                            cartesianActive = false;
+                        }
+                    };
+
                     triggerComponent.onButtonStateChangedObservable.add(component => {
                         // only react to state changes on the pressed flag
                         if (!component.changes.pressed) return;
@@ -115,17 +138,52 @@ export class InteractionManager {
                                 if (!pickInfo || !pickInfo.hit) {
                                     const ray = buildForwardRay(rightController);
                                     if (ray) {
-                                        // try pick against whichever basePlane is currently visible; fallback to twoTone
-                                        const targetMesh = this.twoTone.basePlane.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
-                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
+                                        // Prefer currently visible curved meshes; else fallback to instanced
+                                        const visibleCurved = (this.curvedTwoTone?.mesh?.isVisible ? this.curvedTwoTone.mesh : null)
+                                            || (this.curvedHeat?.mesh?.isVisible ? this.curvedHeat.mesh : null);
+                                        if (visibleCurved) {
+                                            pickInfo = this.scene.pickWithRay(ray, mesh => mesh === visibleCurved);
+                                        }
+                                        if (!pickInfo || !pickInfo.hit) {
+                                            const targetMesh = this.twoTone.basePlane.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
+                                            pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
+                                        }
                                     }
                                 }
                                 if (pickInfo && pickInfo.hit) {
-                                    const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
-                                    if (idx !== lastIndex && idx != null) {
-                                        lastIndex = idx;
-                                        applyFisheye(idx);
-                                        fisheyeActive = true;
+                                    const hitMesh = pickInfo.pickedMesh;
+                                    const isCurved = (this.curvedHeat && hitMesh === this.curvedHeat.mesh) || (this.curvedTwoTone && hitMesh === this.curvedTwoTone.mesh);
+                                    if (isCurved) {
+                                        // compute normalized (u,v) from picked point on curved cylinder
+                                        const p = pickInfo.pickedPoint;
+                                        if (p && this.cartesian) {
+                                            const R = this.layout.radius;
+                                            const angle = Math.atan2(p.x, p.z + R); // sin= x/R, cos=(z+R)/R
+                                            const u = (angle / this.layout.arcAngle) + 0.5; // [-0.5..0.5] -> [0..1]
+                                            const visualRows = this.layout.numRows - 1;
+                                            const h = visualRows * this.layout.cellHeight;
+                                            const centerYOffset = this.layout.groundOffset + (visualRows / 2 + 0.5) * this.layout.cellHeight;
+                                            const zOrig = p.y - centerYOffset; // original ground z
+                                            const v = (zOrig + h / 2) / h;
+                                            const uClamped = Math.max(0, Math.min(1, u));
+                                            const vClamped = Math.max(0, Math.min(1, v));
+                                            this.cartesian.setFocus(uClamped, vClamped);
+                                            if (!cartesianActive) {
+                                                this.cartesian.setEnabled(true);
+                                                cartesianActive = true;
+                                            }
+                                        }
+                                        // while in curved mode, ensure fisheye is off
+                                        if (fisheyeActive) restore();
+                                    } else {
+                                        const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
+                                        if (idx !== lastIndex && idx != null) {
+                                            lastIndex = idx;
+                                            applyFisheye(idx);
+                                            fisheyeActive = true;
+                                            // turn off cartesian if was on
+                                            disableCartesian();
+                                        }
                                     }
                                 }
                             });
@@ -137,6 +195,7 @@ export class InteractionManager {
                             }
                             lastIndex = null;
                             restore();
+                            disableCartesian();
                         }
                     });
                 }
