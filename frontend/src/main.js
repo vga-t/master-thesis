@@ -6,6 +6,7 @@ import CartesianDistortionController from "../Interaction/CartesianDistortion.js
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
 import { InteractionManager } from "../Interaction/InteractionManager.js";
 
+// import BarsVisualization from "./Visualization/bars.js";
 
 
 import SceneManager from "./sceneManager.js";
@@ -17,14 +18,14 @@ const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
 const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 10, groundOffset: 0.5 });
-console.log("Column metadata:", layout.columnMetadata);
+console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedTwoTone = new CurvedTwoToneVisualization(layout, { twoToneConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
 const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
-const maxTextureSize = scene.getEngine().getCaps().maxTextureSize;
-console.log("Max texture size supported:", maxTextureSize);
+// const bars = new BarsVisualization(layout, scene);
+// bars.render(6);
 heatMap.render(6);
 heatMap.basePlane.isVisible = false;
 curvedHeat.mesh.isVisible = false;
@@ -34,7 +35,7 @@ let currentVis = twoTone;
 const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
 currentVis.render(6, 5);
 const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
-// interaction.addFocusContext();
+
 
 
 document.addEventListener("keypress", event => {
@@ -84,7 +85,7 @@ document.addEventListener("keypress", event => {
             cartesian.nudgeD(0.5);
             console.log("Cartesian D:", cartesian.D);
             break;
-        case "q":
+        case "q": 
         case "Q": // decrease lens degree D
             cartesian.nudgeD(-0.5);
             console.log("Cartesian D:", cartesian.D);
@@ -98,14 +99,6 @@ document.addEventListener("keypress", event => {
         case "a": // decrease alpha
             cartesian.setAlpha(cartesian.alpha - 0.05);
             console.log("Cartesian alpha:", cartesian.alpha);
-            break;
-        case "h":
-        case "H":
-            interaction.setFisheyeAxis('column');
-            break;
-        case "v":
-        case "V":
-            interaction.setFisheyeAxis('row');
             break;
         default:
             alert("Press 1 (TwoTone), 2 (HeatMap), 3 (Curved HeatMap), or 4 (Curved TwoTone) to switch visualization!");

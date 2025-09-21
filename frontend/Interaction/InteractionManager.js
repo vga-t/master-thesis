@@ -75,46 +75,8 @@ export class InteractionManager {
 
                     let hoverObserver = null;
                     let lastIndex = null; // thin instance index
-                    let fisheyeActive = false;
                     let cartesianActive = false;
                     const originalMatrix = this.layout.getOriginalPositionMatrix();
-
-                    const applyFisheye = (flatIndex) => {
-                        if (flatIndex == null) return;
-                        // parameters could be dynamic later (e.g., trigger pressure -> divisor)
-                        // Smaller divisors -> larger focused span (dominance is enforced in layout functions)
-                        const colDivisor = 12; // focused column spans 1/colDivisor of arc
-                        const rowDivisor = 2; // focused row spans 1/rowDivisor of vertical span
-                        const sigma = 1.4;     // neighborhood falloff
-                        const minFactor = 0.1; // min relative size for distant segments
-                        const edgeSafety = 0.94; // shrink a bit to avoid grazing
-                        let distorted;
-                        if (this.fisheyeAxis === 'column') {
-                            const focusCol = flatIndex % this.layout.numCols;
-                            distorted = this.layout.computeColumnFocusLayout(focusCol, colDivisor, sigma, minFactor, edgeSafety);
-                        } else {
-                            const focusRow = Math.floor(flatIndex / this.layout.numCols);
-                            distorted = this.layout.computeRowFocusLayout(focusRow, rowDivisor, sigma, minFactor, edgeSafety);
-                        }
-                        if (!distorted) return;
-                        if (this.heatMap && this.heatMap.basePlane) {
-                            this.heatMap.basePlane.thinInstanceSetBuffer("matrix", distorted, 16);
-                        }
-                        if (this.twoTone && this.twoTone.basePlane) {
-                            this.twoTone.basePlane.thinInstanceSetBuffer("matrix", distorted, 16);
-                        }
-                    };
-
-                    const restore = () => {
-                        if (!fisheyeActive) return;
-                        if (this.heatMap && this.heatMap.basePlane) {
-                            this.heatMap.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
-                        }
-                        if (this.twoTone && this.twoTone.basePlane) {
-                            this.twoTone.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
-                        }
-                        fisheyeActive = false;
-                    };
 
                     const disableCartesian = () => {
                         if (this.cartesian && cartesianActive) {
@@ -173,28 +135,25 @@ export class InteractionManager {
                                                 cartesianActive = true;
                                             }
                                         }
-                                        // while in curved mode, ensure fisheye is off
-                                        if (fisheyeActive) restore();
                                     } else {
+                                        // Instanced mesh was hit: just log the thin-instance index
                                         const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
                                         if (idx !== lastIndex && idx != null) {
                                             lastIndex = idx;
-                                            applyFisheye(idx);
-                                            fisheyeActive = true;
-                                            // turn off cartesian if was on
+                                            console.log("Picked thin-instance index:", idx);
+                                            // ensure cartesian (curved) is off
                                             disableCartesian();
                                         }
                                     }
                                 }
                             });
                         } else {
-                            // stop and restore on release
+                            // stop on release
                             if (hoverObserver) {
                                 this.scene.onBeforeRenderObservable.remove(hoverObserver);
                                 hoverObserver = null;
                             }
                             lastIndex = null;
-                            restore();
                             disableCartesian();
                         }
                     });
@@ -216,13 +175,4 @@ export class InteractionManager {
     }
 
 
-    setFisheyeAxis(axis) {
-        if (axis === 'column' || axis === 'row') {
-            this.fisheyeAxis = axis;
-            const originalMatrix = this.layout.getOriginalPositionMatrix();
-            if (this.heatMap && this.heatMap.basePlane) this.heatMap.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
-            if (this.twoTone && this.twoTone.basePlane) this.twoTone.basePlane.thinInstanceSetBuffer("matrix", originalMatrix, 16);
-            console.log(`Fisheye axis switched to ${axis}`);
-        }
-    }
 }
