@@ -1,13 +1,12 @@
 // Central controller for enabling/disabling cartesian distortion on curved visualizations
-// Expects targets to expose setCartesianEnabled(bool), setCartesianFocus(x,y), setCartesianAlpha(a)
+// Expects targets to expose setCartesianEnabled(bool), setCartesianFocus(x,y), setCartesianD(d)
 
 export class CartesianDistortionController {
     constructor(targets = []) {
         this.targets = targets; // array of visualizations
         this.enabled = false;
         this.focus = { x: 0.5, y: 0.5 };
-        this.alpha = 0.00;
-        this.D = .0; // degree of magnification for cartesian lens
+        this.D = 0.0; // degree of magnification for cartesian lens
     }
 
     addTarget(target) { this.targets.push(target); }
@@ -22,11 +21,6 @@ export class CartesianDistortionController {
     setFocus(xNorm, yNorm) {
         this.focus = { x: Math.max(0, Math.min(1, xNorm)), y: Math.max(0, Math.min(1, yNorm)) };
         this.targets.forEach(t => t?.setCartesianFocus?.(this.focus.x, this.focus.y));
-    }
-
-    setAlpha(a) {
-        this.alpha = Math.max(0.05, Math.min(0.95, a));
-        this.targets.forEach(t => t?.setCartesianAlpha?.(this.alpha));
     }
 
     setD(d) {

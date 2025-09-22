@@ -12,7 +12,7 @@ export class CurvedHeatMapVisualization {
 
         this.numCols = layout.numCols;
         // visual rows exclude the CSV header row
-        this.numRows = layout.numRows;
+        this.numRows = layout.numRows - 1;
         this.cellWidth = layout.cellWidth;
         this.cellHeight = layout.cellHeight;
         this.arcAngle = layout.arcAngle;
@@ -169,7 +169,6 @@ export class CurvedHeatMapVisualization {
             uniform float uEnableCartesian;
             uniform float uFocusCol;
             uniform float uFocusRow;
-            uniform float uAlpha;
             uniform float uD;
             float distort1D_cart(float x, float focus, float D) {
                 float dnorm = abs(x - focus);
@@ -181,19 +180,15 @@ export class CurvedHeatMapVisualization {
                 float x2 = focus + signv * (dnorm * scale);
                 return clamp(x2, 0.0, 1.0);
             }
-            float distort1D_pow(float x, float focus, float alpha) {
-                float d = x - focus;
-                float ad = abs(d);
-                float s = sign(d);
-                float nd = s * pow(ad, alpha);
-                return clamp(focus + nd, 0.0, 1.0);
-            }
-            float distort1D(float x, float focus, float alpha, float D) {
-                return (D > 0.0) ? distort1D_cart(x, focus, D) : distort1D_pow(x, focus, alpha);
+            float distort1D(float x, float focus, float D) {
+                // Always use degree-based cartesian distortion (D)
+                return distort1D_cart(x, focus, D);
             }
             void main() {
-                float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uAlpha, uD) : vUV.x;
-                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uAlpha, uD) : vUV.y;
+                // float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uD) : vUV.x;
+                float ux = vUV.x;
+                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uD) : vUV.y;
+                // float vy = vUV.y;
                 // sample per-cell center after distortion to avoid bleeding
                 vec2 cellCoord = vec2(floor(ux * uCols), floor(vy * uRows));
                 vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
@@ -205,7 +200,7 @@ export class CurvedHeatMapVisualization {
             fragment: "curvedHeat"
         }, {
             attributes: ["position", "uv"],
-            uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uAlpha", "uD"],
+            uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uD"],
             samplers: ["texData"]
         });
         mat.disableLighting = true;
@@ -216,7 +211,6 @@ export class CurvedHeatMapVisualization {
         mat.setFloat("uEnableCartesian", 0.0);
         mat.setFloat("uFocusCol", 0.5);
         mat.setFloat("uFocusRow", 0.5);
-        mat.setFloat("uAlpha", 1.5);
         mat.setFloat("uD", 3.5);
         this.mesh.material = mat;
         // Ensure UVs run U: left->right, V: top->bottom; CreateGround already sets that convention.
@@ -245,10 +239,7 @@ export class CurvedHeatMapVisualization {
             mat.setFloat("uFocusRow", Math.max(0, Math.min(1, rowNorm)));
         }
     }
-    setCartesianAlpha(alpha) {
-        const mat = this.mesh?.material;
-        if (mat && mat.setFloat) mat.setFloat("uAlpha", Math.max(0.05, Math.min(0.95, alpha)));
-    }
+    // Legacy alpha removed: distortion uses degree D only
     setCartesianD(d) {
         this._lastD = d;
         console.log('CurvedHeatMap.setCartesianD', d); // <-- add this line

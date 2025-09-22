@@ -17,7 +17,7 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 10, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 5, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
@@ -33,7 +33,7 @@ curvedTwoTone.mesh.isVisible = false;
 let currentVis = twoTone;
 // Centralized cartesian distortion controller for curved visualizations
 const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
-currentVis.render(6, 1);4
+currentVis.render(6, 1);
 const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
 
 
@@ -89,16 +89,6 @@ document.addEventListener("keypress", event => {
         case "Q": // decrease lens degree D
             cartesian.nudgeD(-0.5);
             console.log("Cartesian D:", cartesian.D);
-            break;
-        case "m":
-        case "M": // increase alpha for pow model (if D<=0)
-            cartesian.setAlpha(cartesian.alpha + 0.05);
-            console.log("Cartesian alpha:", cartesian.alpha);
-            break;
-        case "n":
-        case "N": // decrease alpha
-            cartesian.setAlpha(cartesian.alpha - 0.05);
-            console.log("Cartesian alpha:", cartesian.alpha);
             break;
         default:
             alert("Press 1 (TwoTone), 2 (HeatMap), 3 (Curved HeatMap), or 4 (Curved TwoTone) to switch visualization!");

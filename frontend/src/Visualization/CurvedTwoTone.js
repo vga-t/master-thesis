@@ -86,7 +86,6 @@ export class CurvedTwoToneVisualization {
             uniform float uEnableCartesian; // 0 or 1
             uniform float uFocusCol; // normalized [0,1]
             uniform float uFocusRow; // normalized [0,1]
-            uniform float uAlpha;     // legacy exponent (kept for compatibility, not used if uD>0)
             uniform float uD;         // degree of magnification (>=1). Higher -> narrower focus, stronger lens
 
             // Degree-based cartesian lens inspired by provided 2D implementation
@@ -100,20 +99,14 @@ export class CurvedTwoToneVisualization {
                 float x2 = focus + signv * (dnorm * scale);
                 return clamp(x2, 0.0, 1.0);
             }
-            float distort1D_pow(float x, float focus, float alpha) {
-                float d = x - focus;
-                float ad = abs(d);
-                float s = sign(d);
-                float nd = s * pow(ad, alpha);
-                return clamp(focus + nd, 0.0, 1.0);
-            }
-            float distort1D(float x, float focus, float alpha, float D) {
-                return (D > 0.0) ? distort1D_cart(x, focus, D) : distort1D_pow(x, focus, alpha);
+            float distort1D(float x, float focus, float D) {
+                return distort1D_cart(x, focus, D);
             }
             void main() {
                 // Centered sampling per cell to avoid neighbor bleeding
-                float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uAlpha, uD) : vUV.x;
-                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uAlpha, uD) : vUV.y;
+                // float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uD) : vUV.x;
+                float ux = vUV.x;
+                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uD) : vUV.y;
 
                 vec2 cellCoord = vec2(floor(ux * uCols), floor(vy * uRows));
                 vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
@@ -133,7 +126,7 @@ export class CurvedTwoToneVisualization {
             fragment: "curvedTwoTone"
         }, {
             attributes: ["position", "uv"],
-            uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uAlpha", "uD"],
+            uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uD"],
             samplers: ["texSplit", "texC1", "texC2"]
         });
         mat.backFaceCulling = false;
@@ -143,7 +136,6 @@ export class CurvedTwoToneVisualization {
         mat.setFloat("uEnableCartesian", 0.0);
         mat.setFloat("uFocusCol", 0.5);
         mat.setFloat("uFocusRow", 0.5);
-        mat.setFloat("uAlpha", 0.6);
         mat.setFloat("uD", 3.5);
         this.mesh.material = mat;
     }
@@ -247,10 +239,7 @@ export class CurvedTwoToneVisualization {
             mat.setFloat("uFocusRow", Math.max(0, Math.min(1, rowNorm)));
         }
     }
-    setCartesianAlpha(alpha) {
-        const mat = this.mesh?.material;
-        if (mat && mat.setFloat) mat.setFloat("uAlpha", Math.max(0.05, Math.min(0.95, alpha)));
-    }
+    // Legacy alpha removed: distortion uses degree D only
     setCartesianD(d) {
         this._lastD = d;
         console.log('CurvedTwoTone.setCartesianD', d); // <-- add this line
