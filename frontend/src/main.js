@@ -33,7 +33,7 @@ curvedTwoTone.mesh.isVisible = false;
 let currentVis = twoTone;
 // Centralized cartesian distortion controller for curved visualizations
 const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
-currentVis.render(6, 5);
+currentVis.render(6, 1);4
 const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
 
 
@@ -85,18 +85,18 @@ document.addEventListener("keypress", event => {
             cartesian.nudgeD(0.5);
             console.log("Cartesian D:", cartesian.D);
             break;
-        case "q": 
+        case "q":
         case "Q": // decrease lens degree D
             cartesian.nudgeD(-0.5);
             console.log("Cartesian D:", cartesian.D);
             break;
-        case "b":
-        case "B": // increase alpha for pow model (if D<=0)
+        case "m":
+        case "M": // increase alpha for pow model (if D<=0)
             cartesian.setAlpha(cartesian.alpha + 0.05);
             console.log("Cartesian alpha:", cartesian.alpha);
             break;
-        case "A":
-        case "a": // decrease alpha
+        case "n":
+        case "N": // decrease alpha
             cartesian.setAlpha(cartesian.alpha - 0.05);
             console.log("Cartesian alpha:", cartesian.alpha);
             break;

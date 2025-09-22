@@ -252,8 +252,11 @@ export class CurvedTwoToneVisualization {
         if (mat && mat.setFloat) mat.setFloat("uAlpha", Math.max(0.05, Math.min(0.95, alpha)));
     }
     setCartesianD(d) {
-        const mat = this.mesh?.material;
-        if (mat && mat.setFloat) mat.setFloat("uD", Math.max(0.1, d));
+        this._lastD = d;
+        console.log('CurvedTwoTone.setCartesianD', d); // <-- add this line
+        if (this.mesh && this.mesh.material && typeof this.mesh.material.setFloat === 'function') {
+            this.mesh.material.setFloat("uD", d);
+        }
     }
 }
 

@@ -96,6 +96,8 @@ export class InteractionManager {
                                 const ps = this.xrHelper.pointerSelection;
                                 if (ps && typeof ps.getMeshUnderPointer === 'function') {
                                     pickInfo = ps.getMeshUnderPointer(rightController.uniqueId);
+                                    // console.log("pickInfo from getMeshUnderPointer, pickInfo:", pickInfo);
+                                    // console.log("Thin instance index of picked mesh:", pickInfo.thinInstanceIndex);
                                 }
                                 if (!pickInfo || !pickInfo.hit) {
                                     const ray = buildForwardRay(rightController);
@@ -119,6 +121,7 @@ export class InteractionManager {
                                         // compute normalized (u,v) from picked point on curved cylinder
                                         const p = pickInfo.pickedPoint;
                                         if (p && this.cartesian) {
+                                            // console.log(`Picked point in 3D ${p}`);
                                             const R = this.layout.radius;
                                             const angle = Math.atan2(p.x, p.z + R); // sin= x/R, cos=(z+R)/R
                                             const u = (angle / this.layout.arcAngle) + 0.5; // [-0.5..0.5] -> [0..1]

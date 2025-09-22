@@ -12,22 +12,22 @@ export class CurvedHeatMapVisualization {
 
         this.numCols = layout.numCols;
         // visual rows exclude the CSV header row
-        this.visualRows = layout.numRows - 1;
+        this.numRows = layout.numRows;
         this.cellWidth = layout.cellWidth;
         this.cellHeight = layout.cellHeight;
         this.arcAngle = layout.arcAngle;
         this.radius = layout.radius;
 
         // The visual height spans only the data rows (exclude header row)
-        this.visualHeight = this.cellHeight * this.visualRows;
+        this.height = this.cellHeight * this.numRows;
         this.arcLength = this.radius * this.arcAngle;
 
         // Build a ground (XZ) with sufficient subdivisions; then curve it along X and lift Z -> Y
         const subX = Math.max(this.numCols, 256);
-        const subY = Math.max(this.visualRows, 64);
+        const subY = Math.max(this.numRows, 64);
         this.mesh = BABYLON.MeshBuilder.CreateGround("curvedHeatPlane", {
             width: this.arcLength,
-            height: this.visualHeight,
+            height: this.height,
             subdivisionsX: subX,
             subdivisionsY: subY
         }, scene);
@@ -41,11 +41,11 @@ export class CurvedHeatMapVisualization {
         const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
         const indices = mesh.getIndices();
         const w = this.arcLength;
-        const h = this.visualHeight;
+        const h = this.height;
 
-        // Center so bottom edge = groundOffset + 0.5*cellHeight and top edge = groundOffset + (visualRows + 0.5)*cellHeight
-        // centerY = groundOffset + (visualRows/2 + 0.5)*cellHeight
-        const centerYOffset = this.layout.groundOffset + (this.visualRows / 2 + 0.5) * this.cellHeight;
+        // Center so bottom edge = groundOffset + 0.5*cellHeight and top edge = groundOffset + (numRows + 0.5)*cellHeight
+        // centerY = groundOffset + (numRows/2 + 0.5)*cellHeight
+        const centerYOffset = this.layout.groundOffset + (this.numRows / 2 + 0.5) * this.cellHeight;
 
         // Reposition each vertex from straight XZ ground to cylinder segment along X; map Z -> vertical Y
         for (let i = 0; i < positions.length; i += 3) {
@@ -73,7 +73,7 @@ export class CurvedHeatMapVisualization {
 
     _applyDataTexture() {
         const width = this.numCols;
-        const height = this.visualRows;
+        const height = this.numRows;
         const size = width * height * 4;
         const pixels = new Uint8Array(size);
 
@@ -212,11 +212,11 @@ export class CurvedHeatMapVisualization {
         mat.backFaceCulling = false;
         mat.setTexture("texData", texture);
         mat.setFloat("uCols", this.numCols);
-        mat.setFloat("uRows", this.visualRows);
+        mat.setFloat("uRows", this.numRows);
         mat.setFloat("uEnableCartesian", 0.0);
         mat.setFloat("uFocusCol", 0.5);
         mat.setFloat("uFocusRow", 0.5);
-        mat.setFloat("uAlpha", 0.6);
+        mat.setFloat("uAlpha", 1.5);
         mat.setFloat("uD", 3.5);
         this.mesh.material = mat;
         // Ensure UVs run U: left->right, V: top->bottom; CreateGround already sets that convention.
@@ -250,8 +250,11 @@ export class CurvedHeatMapVisualization {
         if (mat && mat.setFloat) mat.setFloat("uAlpha", Math.max(0.05, Math.min(0.95, alpha)));
     }
     setCartesianD(d) {
-        const mat = this.mesh?.material;
-        if (mat && mat.setFloat) mat.setFloat("uD", Math.max(0.1, d));
+        this._lastD = d;
+        console.log('CurvedHeatMap.setCartesianD', d); // <-- add this line
+        if (this.mesh && this.mesh.material && typeof this.mesh.material.setFloat === 'function') {
+            this.mesh.material.setFloat("uD", d);
+        }
     }
 }
 
