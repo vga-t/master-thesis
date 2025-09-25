@@ -6,7 +6,6 @@ import CartesianDistortionController from "../Interaction/CartesianDistortion.js
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
 import { InteractionManager } from "../Interaction/InteractionManager.js";
 
-// import BarsVisualization from "./Visualization/bars.js";
 
 
 import SceneManager from "./sceneManager.js";
@@ -18,20 +17,18 @@ const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
 const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 3, groundOffset: 0.5 });
-console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
+console.log("Column metadata:", layout.columnMetadata); 
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedTwoTone = new CurvedTwoToneVisualization(layout, { twoToneConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
 const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
-// const bars = new BarsVisualization(layout, scene);
-// bars.render(6);
+
 heatMap.render(6);
 heatMap.basePlane.isVisible = false;
 curvedHeat.mesh.isVisible = false;
 curvedTwoTone.mesh.isVisible = false;
 let currentVis = twoTone;
-// Centralized cartesian distortion controller for curved visualizations
 const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
 currentVis.render(6, 1);
 const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
@@ -42,7 +39,6 @@ document.addEventListener("keypress", event => {
     switch (event.key) {
         case "2":
             if (currentVis != heatMap) {
-                // hide previous
                 if (currentVis.mesh) currentVis.mesh.isVisible = false;
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
                 currentVis = heatMap;
@@ -69,7 +65,6 @@ document.addEventListener("keypress", event => {
             if (currentVis != curvedTwoTone) {
                 if (currentVis.mesh) currentVis.mesh.isVisible = false;
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
-                // Ensure textures are baked before showing (match TwoTone defaults used below)
                 curvedTwoTone.render(6, 1);
                 currentVis = curvedTwoTone;
                 currentVis.mesh.isVisible = true;
@@ -81,12 +76,12 @@ document.addEventListener("keypress", event => {
             cartesian.setFocus(0.5, 0.5);
             break;
         case "w":
-        case "W": // increase lens degree D (narrower, stronger)
+        case "W": 
             cartesian.nudgeD(0.5);
             console.log("Cartesian D:", cartesian.D);
             break;
         case "q":
-        case "Q": // decrease lens degree D
+        case "Q": 
             cartesian.nudgeD(-0.5);
             console.log("Cartesian D:", cartesian.D);
             break;

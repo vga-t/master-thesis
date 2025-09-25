@@ -1,7 +1,6 @@
 import * as BABYLON from "babylonjs";
 
-// Single curved plane, two-tone per cell via data texture.
-// This version has NO row highlighting logic.
+
 export class CurvedTwoToneVisualization {
     constructor(layout, { twoToneConfig }, scene) {
         this.layout = layout;
@@ -20,7 +19,6 @@ export class CurvedTwoToneVisualization {
         this.visualHeight = this.cellHeight * this.visualRows;
         this.arcLength = this.radius * this.arcAngle;
 
-        // Ground mesh with enough subdivisions for smooth curve
         const subX = Math.max(this.numCols, 128);
         const subY = Math.max(this.visualRows, 64);
         this.mesh = BABYLON.MeshBuilder.CreateGround("curvedTwoTonePlane", {
@@ -62,8 +60,7 @@ export class CurvedTwoToneVisualization {
     }
 
     _createMaterial() {
-        // --- VERTEX SHADER ---
-        // Handles the distortion and passes the distorted UV to the fragment shader.
+
         BABYLON.Effect.ShadersStore["curvedTwoToneVertexShader"] = `
             precision highp float;
             attribute vec3 position;
@@ -72,6 +69,7 @@ export class CurvedTwoToneVisualization {
             uniform mat4 worldViewProjection;
             uniform float uEnableCartesian;
             uniform float uFocusRow;
+            uniform float uFocusCol;
             uniform float uD;
 
             varying vec2 vUV; // Only one UV set is needed now
@@ -87,7 +85,6 @@ export class CurvedTwoToneVisualization {
             }
 
             void main() {
-                // Calculate the distorted UVs and pass them to the fragment shader
                 float vy = (uEnableCartesian > 0.5) ? distort1D(uv.y, uFocusRow, uD) : uv.y;
                 vUV = vec2(uv.x, vy);
 
@@ -95,8 +92,7 @@ export class CurvedTwoToneVisualization {
             }
         `;
 
-        // --- FRAGMENT SHADER ---
-        // Simplified to only handle the two-tone coloring. All highlighting logic is removed.
+
         BABYLON.Effect.ShadersStore["curvedTwoToneFragmentShader"] = `
             precision highp float;
 
@@ -129,7 +125,6 @@ export class CurvedTwoToneVisualization {
             fragment: "curvedTwoTone"
         }, {
             attributes: ["position", "uv"],
-            // Uniforms list is now shorter
             uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uD"],
             samplers: ["texSplit", "texC1", "texC2"]
         });
@@ -146,7 +141,6 @@ export class CurvedTwoToneVisualization {
     }
 
     render(paletteCount = 5, intervals = 3) {
-        // Build/refresh textures consistent with TwoTone.js
         const width = this.numCols;
         const height = this.visualRows;
 
@@ -173,7 +167,7 @@ export class CurvedTwoToneVisualization {
                     const categoryIndex = Math.round(value * (meta.categories.length - 1));
                     const color = palette[categoryIndex % palette.length];
                     c1 = color; c2 = color; split = 1.0;
-                } else { // constant
+                } else {
                     c1 = neutral; c2 = neutral; split = 1.0;
                 }
 

@@ -11,7 +11,7 @@ class LCVDSLayout {
         this.numRows = csvData.length;
         this.numCols = Object.keys(csvData[0]).length;
         this.positionMatrix = [];
-        this.originalPositionMatrix = null; // will hold a copy of the initial layout for restoration
+        this.originalPositionMatrix = null; 
         this.dataArray = [];
         this.originalDataArray = [];
 
@@ -48,7 +48,6 @@ class LCVDSLayout {
         const numericValid = numericParsed.filter(v => !Number.isNaN(v));
         const numericRatio = numericValid.length / cleaned.length;
 
-        // Date detection
         const dateParsed = cleaned.map(v => {
             const t = Date.parse(v);
             return Number.isFinite(t) ? t : NaN;
@@ -57,7 +56,6 @@ class LCVDSLayout {
         const dateRatio = dateValid.length / cleaned.length;
 
         const unique = Array.from(new Set(cleaned));
-        // Decide type
         let type;
         if (numericRatio >= 0.9) type = "numeric";
         else if (dateRatio >= 0.9) type = "date";
@@ -129,7 +127,6 @@ class LCVDSLayout {
         const bottomRowY = ((this.numRows - 1 - (this.numRows - 1)) - this.numRows / 2 + 0.5) * this.cellHeight;
         const yShift = this.groundOffset - bottomRowY;
         if (instanceIndex == null) {
-            // Prevent recomputation if already computed
             if (this.positionMatrix.length === 0) {
                 for (let row = 1; row < this.csvData.length; row++) {
                     const rowData = this.csvData[row];
@@ -152,7 +149,6 @@ class LCVDSLayout {
                         this.dataArray.push(normalizedValue);
                     }
                 }
-                // store immutable copy
                 this.originalPositionMatrix = this.positionMatrix.slice();
             }
             return {
@@ -162,7 +158,6 @@ class LCVDSLayout {
                 columnMetadata: this.columnMetadata
             };
         } else {
-            // future: compute single instance
         }
     }
 

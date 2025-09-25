@@ -1,7 +1,6 @@
 import * as BABYLON from "babylonjs";
 
-// Renders the full grid as a single curved plane; each cell's final color is baked into a small data texture.
-// This version implements lens distortion in the VERTEX SHADER.
+
 export class CurvedHeatMapVisualization {
     constructor(layout, { heatMapConfig }, scene) {
         this.layout = layout;
@@ -9,10 +8,10 @@ export class CurvedHeatMapVisualization {
         this.config = heatMapConfig;
 
         const { dataArray } = layout.computeCellPositions();
-        this.dataArray = dataArray; // normalized values in [0,1]
+        this.dataArray = dataArray;
 
         this.numCols = layout.numCols;
-        this.numRows = layout.numRows - 1; // visual rows exclude the CSV header row
+        this.numRows = layout.numRows - 1;
         this.cellWidth = layout.cellWidth;
         this.cellHeight = layout.cellHeight;
         this.arcAngle = layout.arcAngle;
@@ -21,7 +20,7 @@ export class CurvedHeatMapVisualization {
         this.height = this.cellHeight * this.numRows;
         this.arcLength = this.radius * this.arcAngle;
 
-        // NOTE: For vertex-shader distortion, these subdivisions are CRITICAL for quality.
+
         const subX = Math.max(this.numCols, 256);
         const subY = Math.max(this.numRows, 64);
         this.mesh = BABYLON.MeshBuilder.CreateGround("curvedHeatPlane", {
@@ -65,7 +64,7 @@ export class CurvedHeatMapVisualization {
     }
 
     _applyDataTextureAndShader() {
-        // --- This part remains the same: Bake cell colors into a texture on the CPU ---
+
         const width = this.numCols;
         const height = this.numRows;
         const pixels = new Uint8Array(width * height * 4);
@@ -122,10 +121,7 @@ export class CurvedHeatMapVisualization {
         texture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
         this._dataTexture = texture;
 
-        // --- SHADER DEFINITIONS ARE MODIFIED HERE ---
 
-        // --- VERTEX SHADER ---
-        // Now handles the distortion logic and passes distorted UVs to the fragment shader.
         BABYLON.Effect.ShadersStore["curvedHeatVertexShader"] = `
             precision highp float;
             attribute vec3 position;
@@ -162,8 +158,7 @@ export class CurvedHeatMapVisualization {
             }
         `;
 
-        // --- FRAGMENT SHADER ---
-        // Now simplified: it just receives the pre-distorted UV and samples the texture.
+
         BABYLON.Effect.ShadersStore["curvedHeatFragmentShader"] = `
             precision highp float;
             varying vec2 vUV; // Receives the interpolated, pre-distorted UV
@@ -204,7 +199,7 @@ export class CurvedHeatMapVisualization {
     }
 
     render() {
-        // No-op: construction already applied data texture.
+
     }
 
     dispose() {
@@ -212,7 +207,7 @@ export class CurvedHeatMapVisualization {
         if (this._dataTexture) this._dataTexture.dispose();
     }
 
-    // API methods remain unchanged as they correctly set uniforms on the material
+
     setCartesianEnabled(enabled) {
         const mat = this.mesh?.material;
         if (mat && mat.setFloat) mat.setFloat("uEnableCartesian", enabled ? 1.0 : 0.0);

@@ -9,8 +9,8 @@ export class InteractionManager {
         this.twoTone = twoTone;
         this.curvedHeat = curvedHeat;
         this.curvedTwoTone = curvedTwoTone;
-        this.cartesian = cartesian; // optional controller
-        this.fisheyeAxis = 'column'; // 'column' or 'row'
+        this.cartesian = cartesian; 
+        this.fisheyeAxis = 'column';
 
         if (this.heatMap?.basePlane) {
             this.heatMap.basePlane.isPickable = true;
@@ -64,7 +64,6 @@ export class InteractionManager {
                 if (motionController.handness === "right") {
                     const rightController = controller;
 
-                    // helper to build a forward ray manually if pointerSelection forward ray unavailable
                     const buildForwardRay = (ctrl, length = 100) => {
                         const pointer = ctrl.pointer || ctrl.grip || ctrl;
                         if (!pointer.getAbsolutePosition) return null;
@@ -74,7 +73,7 @@ export class InteractionManager {
                     };
 
                     let hoverObserver = null;
-                    let lastIndex = null; // thin instance index
+                    let lastIndex = null; 
                     let cartesianActive = false;
                     const originalMatrix = this.layout.getOriginalPositionMatrix();
 
@@ -86,11 +85,9 @@ export class InteractionManager {
                     };
 
                     triggerComponent.onButtonStateChangedObservable.add(component => {
-                        // only react to state changes on the pressed flag
                         if (!component.changes.pressed) return;
 
                         if (component.pressed) {
-                            // start continuous per-frame picking while held
                             hoverObserver = this.scene.onBeforeRenderObservable.add(() => {
                                 let pickInfo = null;
                                 const ps = this.xrHelper.pointerSelection;
@@ -102,7 +99,7 @@ export class InteractionManager {
                                 if (!pickInfo || !pickInfo.hit) {
                                     const ray = buildForwardRay(rightController);
                                     if (ray) {
-                                        // Prefer currently visible curved meshes; else fallback to instanced
+
                                         const visibleCurved = (this.curvedTwoTone?.mesh?.isVisible ? this.curvedTwoTone.mesh : null)
                                             || (this.curvedHeat?.mesh?.isVisible ? this.curvedHeat.mesh : null);
                                         if (visibleCurved) {
@@ -118,17 +115,16 @@ export class InteractionManager {
                                     const hitMesh = pickInfo.pickedMesh;
                                     const isCurved = (this.curvedHeat && hitMesh === this.curvedHeat.mesh) || (this.curvedTwoTone && hitMesh === this.curvedTwoTone.mesh);
                                     if (isCurved) {
-                                        // compute normalized (u,v) from picked point on curved cylinder
                                         const p = pickInfo.pickedPoint;
                                         if (p && this.cartesian) {
                                             // console.log(`Picked point in 3D ${p}`);
                                             const R = this.layout.radius;
-                                            const angle = Math.atan2(p.x, p.z + R); // sin= x/R, cos=(z+R)/R
-                                            const u = (angle / this.layout.arcAngle) + 0.5; // [-0.5..0.5] -> [0..1]
+                                            const angle = Math.atan2(p.x, p.z + R); 
+                                            const u = (angle / this.layout.arcAngle) + 0.5; 
                                             const visualRows = this.layout.numRows - 1;
                                             const h = visualRows * this.layout.cellHeight;
                                             const centerYOffset = this.layout.groundOffset + (visualRows / 2 + 0.5) * this.layout.cellHeight;
-                                            const zOrig = p.y - centerYOffset; // original ground z
+                                            const zOrig = p.y - centerYOffset; 
                                             const v = (zOrig + h / 2) / h;
                                             const uClamped = Math.max(0, Math.min(1, u));
                                             const vClamped = Math.max(0, Math.min(1, v));
@@ -139,19 +135,16 @@ export class InteractionManager {
                                             }
                                         }
                                     } else {
-                                        // Instanced mesh was hit: just log the thin-instance index
                                         const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
                                         if (idx !== lastIndex && idx != null) {
                                             lastIndex = idx;
                                             console.log("Picked thin-instance index:", idx);
-                                            // ensure cartesian (curved) is off
                                             disableCartesian();
                                         }
                                     }
                                 }
                             });
                         } else {
-                            // stop on release
                             if (hoverObserver) {
                                 this.scene.onBeforeRenderObservable.remove(hoverObserver);
                                 hoverObserver = null;
