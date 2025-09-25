@@ -17,7 +17,7 @@ import LCVDSLayout from "./LCVDSLayout.js";
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 5, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 3, groundOffset: 0.5 });
 console.log("Column metadata:", layout.columnMetadata); // new: inspect inferred types
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);

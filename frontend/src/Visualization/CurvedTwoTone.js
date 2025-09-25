@@ -1,8 +1,7 @@
 import * as BABYLON from "babylonjs";
 
-// Single curved plane, two-tone per cell via data texture:
-// We pack split ratio in alpha, and store two colors per cell via a 2x width texture (left half = color2, right half = color1),
-// or simpler: store both colors horizontally per cell.
+// Single curved plane, two-tone per cell via data texture.
+// This version has NO row highlighting logic.
 export class CurvedTwoToneVisualization {
     constructor(layout, { twoToneConfig }, scene) {
         this.layout = layout;
@@ -22,8 +21,8 @@ export class CurvedTwoToneVisualization {
         this.arcLength = this.radius * this.arcAngle;
 
         // Ground mesh with enough subdivisions for smooth curve
-        const subX = Math.max(this.numCols, 64);
-        const subY = Math.max(this.visualRows, 8);
+        const subX = Math.max(this.numCols, 128);
+        const subY = Math.max(this.visualRows, 64);
         this.mesh = BABYLON.MeshBuilder.CreateGround("curvedTwoTonePlane", {
             width: this.arcLength,
             height: this.visualHeight,
@@ -63,61 +62,65 @@ export class CurvedTwoToneVisualization {
     }
 
     _createMaterial() {
-        // Custom shader: sample split and two colors textures
+        // --- VERTEX SHADER ---
+        // Handles the distortion and passes the distorted UV to the fragment shader.
         BABYLON.Effect.ShadersStore["curvedTwoToneVertexShader"] = `
             precision highp float;
             attribute vec3 position;
             attribute vec2 uv;
+            
             uniform mat4 worldViewProjection;
-            varying vec2 vUV;
+            uniform float uEnableCartesian;
+            uniform float uFocusRow;
+            uniform float uD;
+
+            varying vec2 vUV; // Only one UV set is needed now
+
+            // Distortion function moved into the vertex shader
+            float distort1D(float x, float focus, float D) {
+                float dnorm = abs(x - focus);
+                if (dnorm < 1e-6) return focus;
+                float Dmax = (x < focus) ? focus : (1.0 - focus);
+                float scale = (D + 1.0) / (D + (Dmax / dnorm));
+                float signv = sign(x - focus);
+                return clamp(focus + signv * (dnorm * scale), 0.0, 1.0);
+            }
+
             void main() {
-                vUV = uv;
+                // Calculate the distorted UVs and pass them to the fragment shader
+                float vy = (uEnableCartesian > 0.5) ? distort1D(uv.y, uFocusRow, uD) : uv.y;
+                vUV = vec2(uv.x, vy);
+
                 gl_Position = worldViewProjection * vec4(position, 1.0);
             }
         `;
+
+        // --- FRAGMENT SHADER ---
+        // Simplified to only handle the two-tone coloring. All highlighting logic is removed.
         BABYLON.Effect.ShadersStore["curvedTwoToneFragmentShader"] = `
             precision highp float;
+
             varying vec2 vUV;
+            
             uniform sampler2D texSplit;
             uniform sampler2D texC1;
             uniform sampler2D texC2;
             uniform float uCols;
             uniform float uRows;
-            uniform float uEnableCartesian; // 0 or 1
-            uniform float uFocusCol; // normalized [0,1]
-            uniform float uFocusRow; // normalized [0,1]
-            uniform float uD;         // degree of magnification (>=1). Higher -> narrower focus, stronger lens
 
-            // Degree-based cartesian lens inspired by provided 2D implementation
-            float distort1D_cart(float x, float focus, float D) {
-                float dnorm = abs(x - focus);
-                if (dnorm < 1e-6) return focus;
-                float Dmax = (x < focus) ? focus : (1.0 - focus);
-                // Pull sample coordinates toward focus near pointer: new distance = dnorm * scale (scale in 0..1)
-                float scale = (D + 1.0) / (D + (Dmax / dnorm));
-                float signv = sign(x - focus);
-                float x2 = focus + signv * (dnorm * scale);
-                return clamp(x2, 0.0, 1.0);
-            }
-            float distort1D(float x, float focus, float D) {
-                return distort1D_cart(x, focus, D);
-            }
             void main() {
-                // Centered sampling per cell to avoid neighbor bleeding
-                // float ux = (uEnableCartesian > 0.5) ? distort1D(vUV.x, uFocusCol, uD) : vUV.x;
-                float ux = vUV.x;
-                float vy = (uEnableCartesian > 0.5) ? distort1D(vUV.y, uFocusRow, uD) : vUV.y;
-
-                vec2 cellCoord = vec2(floor(ux * uCols), floor(vy * uRows));
+                // Use the distorted (interpolated) UVs for all visual sampling
+                vec2 cellCoord = vec2(floor(vUV.x * uCols), floor(vUV.y * uRows));
                 vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
 
                 vec4 s = texture2D(texSplit, uvCell);
-                float split = s.r; // 0..1
+                float split = s.r;
                 vec4 c1 = texture2D(texC1, uvCell);
                 vec4 c2 = texture2D(texC2, uvCell);
-                // Compute local U within the current cell (so split acts per cell, like instanced planes)
-                float cellU = fract(ux * uCols);
-                gl_FragColor = (cellU > split) ? c1 : c2;
+                float cellU = fract(vUV.x * uCols);
+                vec4 baseColor = (cellU > split) ? c1 : c2;
+
+                gl_FragColor = baseColor;
             }
         `;
 
@@ -126,9 +129,11 @@ export class CurvedTwoToneVisualization {
             fragment: "curvedTwoTone"
         }, {
             attributes: ["position", "uv"],
+            // Uniforms list is now shorter
             uniforms: ["worldViewProjection", "uCols", "uRows", "uEnableCartesian", "uFocusCol", "uFocusRow", "uD"],
             samplers: ["texSplit", "texC1", "texC2"]
         });
+
         mat.backFaceCulling = false;
         mat.disableLighting = true;
         mat.setFloat("uCols", this.numCols);
@@ -204,7 +209,6 @@ export class CurvedTwoToneVisualization {
             return t;
         };
 
-        // Dispose previous if present
         if (this._texSplit) this._texSplit.dispose();
         if (this._texC1) this._texC1.dispose();
         if (this._texC2) this._texC2.dispose();
@@ -239,10 +243,8 @@ export class CurvedTwoToneVisualization {
             mat.setFloat("uFocusRow", Math.max(0, Math.min(1, rowNorm)));
         }
     }
-    // Legacy alpha removed: distortion uses degree D only
     setCartesianD(d) {
         this._lastD = d;
-        console.log('CurvedTwoTone.setCartesianD', d); // <-- add this line
         if (this.mesh && this.mesh.material && typeof this.mesh.material.setFloat === 'function') {
             this.mesh.material.setFloat("uD", d);
         }
