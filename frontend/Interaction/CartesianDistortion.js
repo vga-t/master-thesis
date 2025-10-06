@@ -1,5 +1,3 @@
-
-
 export class CartesianDistortionController {
     constructor(targets = []) {
         this.targets = targets;

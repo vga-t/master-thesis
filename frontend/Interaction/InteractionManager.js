@@ -9,8 +9,7 @@ export class InteractionManager {
         this.twoTone = twoTone;
         this.curvedHeat = curvedHeat;
         this.curvedTwoTone = curvedTwoTone;
-        this.cartesian = cartesian; 
-        this.fisheyeAxis = 'column';
+        this.cartesian = cartesian;
 
         if (this.heatMap?.basePlane) {
             this.heatMap.basePlane.isPickable = true;
@@ -73,9 +72,8 @@ export class InteractionManager {
                     };
 
                     let hoverObserver = null;
-                    let lastIndex = null; 
+                    let lastIndex = null;
                     let cartesianActive = false;
-                    const originalMatrix = this.layout.getOriginalPositionMatrix();
 
                     const disableCartesian = () => {
                         if (this.cartesian && cartesianActive) {
@@ -88,29 +86,30 @@ export class InteractionManager {
                         if (!component.changes.pressed) return;
 
                         if (component.pressed) {
+                            if (this.twoTone.basePlane?.isVisible) {
+                                this.curvedTwoTone.render(6, 1);
+                                this.twoTone.basePlane.isVisible = false;
+                                this.curvedTwoTone.mesh.isVisible = true;
+                            } else if (this.heatMap.basePlane?.isVisible) {
+                                this.heatMap.basePlane.isVisible = false;
+                                this.curvedHeat.mesh.isVisible = true;
+                            }
                             hoverObserver = this.scene.onBeforeRenderObservable.add(() => {
                                 let pickInfo = null;
-                                const ps = this.xrHelper.pointerSelection;
-                                if (ps && typeof ps.getMeshUnderPointer === 'function') {
-                                    pickInfo = ps.getMeshUnderPointer(rightController.uniqueId);
-                                    // console.log("pickInfo from getMeshUnderPointer, pickInfo:", pickInfo);
-                                    // console.log("Thin instance index of picked mesh:", pickInfo.thinInstanceIndex);
-                                }
-                                if (!pickInfo || !pickInfo.hit) {
-                                    const ray = buildForwardRay(rightController);
-                                    if (ray) {
+                                const ray = buildForwardRay(rightController);
+                                if (ray) {
 
-                                        const visibleCurved = (this.curvedTwoTone?.mesh?.isVisible ? this.curvedTwoTone.mesh : null)
-                                            || (this.curvedHeat?.mesh?.isVisible ? this.curvedHeat.mesh : null);
-                                        if (visibleCurved) {
-                                            pickInfo = this.scene.pickWithRay(ray, mesh => mesh === visibleCurved);
-                                        }
-                                        if (!pickInfo || !pickInfo.hit) {
-                                            const targetMesh = this.twoTone.basePlane.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
-                                            pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
-                                        }
+                                    const visibleCurved = (this.curvedTwoTone?.mesh?.isVisible ? this.curvedTwoTone.mesh : null)
+                                        || (this.curvedHeat?.mesh?.isVisible ? this.curvedHeat.mesh : null);
+                                    if (visibleCurved) {
+                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === visibleCurved);
+                                    }
+                                    if (!pickInfo || !pickInfo.hit) {
+                                        const targetMesh = this.twoTone.basePlane.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
+                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
                                     }
                                 }
+                            
                                 if (pickInfo && pickInfo.hit) {
                                     const hitMesh = pickInfo.pickedMesh;
                                     const isCurved = (this.curvedHeat && hitMesh === this.curvedHeat.mesh) || (this.curvedTwoTone && hitMesh === this.curvedTwoTone.mesh);
@@ -119,12 +118,12 @@ export class InteractionManager {
                                         if (p && this.cartesian) {
                                             // console.log(`Picked point in 3D ${p}`);
                                             const R = this.layout.radius;
-                                            const angle = Math.atan2(p.x, p.z + R); 
-                                            const u = (angle / this.layout.arcAngle) + 0.5; 
+                                            const angle = Math.atan2(p.x, p.z + R);
+                                            const u = (angle / this.layout.arcAngle) + 0.5;
                                             const visualRows = this.layout.numRows - 1;
                                             const h = visualRows * this.layout.cellHeight;
                                             const centerYOffset = this.layout.groundOffset + (visualRows / 2 + 0.5) * this.layout.cellHeight;
-                                            const zOrig = p.y - centerYOffset; 
+                                            const zOrig = p.y - centerYOffset;
                                             const v = (zOrig + h / 2) / h;
                                             const uClamped = Math.max(0, Math.min(1, u));
                                             const vClamped = Math.max(0, Math.min(1, v));
@@ -145,12 +144,22 @@ export class InteractionManager {
                                 }
                             });
                         } else {
+                            // On trigger release: revert back to flat visualization
                             if (hoverObserver) {
                                 this.scene.onBeforeRenderObservable.remove(hoverObserver);
                                 hoverObserver = null;
                             }
                             lastIndex = null;
                             disableCartesian();
+                            // Hide curved and restore flat
+                            if (this.curvedTwoTone.mesh?.isVisible) {
+                                this.curvedTwoTone.mesh.isVisible = false;
+                                this.twoTone.basePlane.isVisible = true;
+                            }
+                            if (this.curvedHeat.mesh?.isVisible) {
+                                this.curvedHeat.mesh.isVisible = false;
+                                this.heatMap.basePlane.isVisible = true;
+                            }
                         }
                     });
                 }

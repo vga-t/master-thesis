@@ -11,7 +11,7 @@ class LCVDSLayout {
         this.numRows = csvData.length;
         this.numCols = Object.keys(csvData[0]).length;
         this.positionMatrix = [];
-        this.originalPositionMatrix = null; 
+        this.originalPositionMatrix = null;
         this.dataArray = [];
         this.originalDataArray = [];
 
@@ -24,6 +24,10 @@ class LCVDSLayout {
         console.log("Column Keys:", this.columnKeys);
         this.columnMetadata = this._inferColumnMetadata();
         console.log("Column Metadata:", this.columnMetadata);
+        const { positionMatrix, dataArray, columnMetadata } = this.computeCellPositions();
+        this.positionMatrix = positionMatrix;
+        this.dataArray = dataArray;
+        this.columnMetadata = columnMetadata;
 
     }
 
@@ -119,7 +123,7 @@ class LCVDSLayout {
         };
     }
 
-    computeCellPositions(instanceIndex = null, foucsWidth = 5, foucsHeight = 5) {
+    computeCellPositions(instanceIndex = null) {
 
         const startAngle = -this.arcAngle / 2;
         const colStepAngle = this.arcAngle / this.numCols;

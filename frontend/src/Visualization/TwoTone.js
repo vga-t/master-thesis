@@ -5,9 +5,6 @@ import Color from "colorjs.io";
 export const twoToneConfig = {
     minValue: 0,
     maxValue: 1,
-    // <-- adjust as you like
-
-    // <-- REPLACED:
     colorMapping(value, paletteList, colIndex, intervals) {
         const { minValue, maxValue } = this;
 
@@ -23,8 +20,6 @@ export const twoToneConfig = {
             const idx = Math.round(j * (P - 1) / intervals);
             stops.push(orig[idx]);
         }
-
-        // figure out which segment we're in and the local t [0–1]
         const scaled = (v - minValue) / (maxValue - minValue) * intervals;
         let i = Math.floor(scaled);
         if (i >= intervals) i = intervals - 1;
@@ -95,9 +90,9 @@ export const twoToneConfig = {
 
 export class TwoToneVisualization {
     constructor(layout, { twoToneConfig }, scene) {
-        const { positionMatrix, dataArray, columnMetadata } = layout.computeCellPositions();
-        this.positionMatrix = positionMatrix;
-        this.dataArray = dataArray;
+        this.positionMatrix = layout.positionMatrix;
+        this.dataArray = layout.dataArray;
+        this.columnMetadata = layout.columnMetadata;
         this.config = twoToneConfig;
         this.scene = scene;
         this.layout = layout;

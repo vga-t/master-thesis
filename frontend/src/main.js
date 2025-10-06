@@ -1,4 +1,3 @@
-import * as BABYLON from "babylonjs";
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
 import CurvedHeatMapVisualization from "./Visualization/CurvedHeatMap.js";
 import CurvedTwoToneVisualization from "./Visualization/CurvedTwoTone.js";
@@ -17,7 +16,7 @@ const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
 const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 3, groundOffset: 0.5 });
-console.log("Column metadata:", layout.columnMetadata); 
+console.log("Column metadata:", layout.columnMetadata);
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedTwoTone = new CurvedTwoToneVisualization(layout, { twoToneConfig }, scene);
@@ -53,35 +52,13 @@ document.addEventListener("keypress", event => {
                 currentVis.basePlane.isVisible = true;
             };
             break;
-        case "3":
-            if (currentVis != curvedHeat) {
-                if (currentVis.mesh) currentVis.mesh.isVisible = false;
-                if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
-                currentVis = curvedHeat;
-                currentVis.mesh.isVisible = true;
-            }
-            break;
-        case "4":
-            if (currentVis != curvedTwoTone) {
-                if (currentVis.mesh) currentVis.mesh.isVisible = false;
-                if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
-                curvedTwoTone.render(6, 1);
-                currentVis = curvedTwoTone;
-                currentVis.mesh.isVisible = true;
-            }
-            break;
-        case "c":
-        case "C":
-            cartesian.toggle();
-            cartesian.setFocus(0.5, 0.5);
-            break;
         case "w":
-        case "W": 
+        case "W":
             cartesian.nudgeD(0.5);
             console.log("Cartesian D:", cartesian.D);
             break;
         case "q":
-        case "Q": 
+        case "Q":
             cartesian.nudgeD(-0.5);
             console.log("Cartesian D:", cartesian.D);
             break;

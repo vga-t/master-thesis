@@ -26,11 +26,12 @@ export const heatMapConfig = {
 
 export class HeatMapVisualization {
     constructor(layout, { heatMapConfig }, scene) {
-        const { positionMatrix, dataArray, columnMetadata } = layout.computeCellPositions();
-        this.positionMatrix = positionMatrix;
-        this.dataArray = dataArray;
-        this.config = heatMapConfig; 
-        this.layout = layout; 
+        this.dataArray = layout.dataArray;
+        this.columnMetadata = layout.columnMetadata;
+        this.positionMatrix = layout.positionMatrix;
+        this.dataArray = layout.dataArray;
+        this.config = heatMapConfig;
+        this.layout = layout;
         this.colorMapping = heatMapConfig.colorMapping.bind(heatMapConfig);
         this.colorListLength = heatMapConfig.colorListLength;
         this.cellWidth = layout.cellWidth;
