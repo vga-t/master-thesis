@@ -87,7 +87,7 @@ export class InteractionManager {
 
                         if (component.pressed) {
                             if (this.twoTone.basePlane?.isVisible) {
-                                this.curvedTwoTone.render(6, 1);
+                                this.curvedTwoTone.render(7);
                                 this.twoTone.basePlane.isVisible = false;
                                 this.curvedTwoTone.mesh.isVisible = true;
                             } else if (this.heatMap.basePlane?.isVisible) {
@@ -109,7 +109,7 @@ export class InteractionManager {
                                         pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
                                     }
                                 }
-                            
+
                                 if (pickInfo && pickInfo.hit) {
                                     const hitMesh = pickInfo.pickedMesh;
                                     const isCurved = (this.curvedHeat && hitMesh === this.curvedHeat.mesh) || (this.curvedTwoTone && hitMesh === this.curvedTwoTone.mesh);

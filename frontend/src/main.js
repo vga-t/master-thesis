@@ -12,16 +12,19 @@ import loadCSV from "./dataLoader.js";
 import LCVDSLayout from "./LCVDSLayout.js";
 
 
+const radius = 6;
+
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: 6, height: 3, groundOffset: 0.5 });
+const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: radius, height: 3, groundOffset: 0.1 });
 console.log("Column metadata:", layout.columnMetadata);
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedTwoTone = new CurvedTwoToneVisualization(layout, { twoToneConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
-const xrHelper = await sceneManager.setupXR().catch("Cannot set XR up");
+const xrHelper = await sceneManager.setupXR(radius).catch("Cannot set XR up");
+sceneManager.setupMultiRayCasting(xrHelper);
 
 heatMap.render(6);
 heatMap.basePlane.isVisible = false;
@@ -29,7 +32,7 @@ curvedHeat.mesh.isVisible = false;
 curvedTwoTone.mesh.isVisible = false;
 let currentVis = twoTone;
 const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
-currentVis.render(6, 1);
+currentVis.render(6);
 const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
 
 

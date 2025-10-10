@@ -5,7 +5,7 @@ import Color from "colorjs.io";
 export const twoToneConfig = {
     minValue: 0,
     maxValue: 1,
-    colorMapping(value, paletteList, colIndex, intervals) {
+    colorMapping(value, paletteList, colIndex, intervals=4) {
         const { minValue, maxValue } = this;
 
         // clamp input value
@@ -161,7 +161,7 @@ export class TwoToneVisualization {
         this.basePlane.material = shaderMat;
     }
 
-    render(paletteCount = 5, intervals = 4) {
+    render(paletteCount = 6, intervals = undefined) {
         const splitArr = [];
         const color1Arr = [];
         const color2Arr = [];

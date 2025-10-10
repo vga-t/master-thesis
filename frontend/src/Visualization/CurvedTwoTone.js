@@ -140,7 +140,7 @@ export class CurvedTwoToneVisualization {
         this.mesh.material = mat;
     }
 
-    render(paletteCount = 5, intervals = 3) {
+    render(paletteCount = 6, intervals = undefined) {
         const width = this.numCols;
         const height = this.visualRows;
 

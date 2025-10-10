@@ -29,10 +29,10 @@ class SceneManager {
         this.light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 10, 0), this.scene);
         this.light.intensity = 0.7;
     }
-    async setupXR() {
+    async setupXR(radius) {
         const ground = BABYLON.MeshBuilder.CreateGround("ground", {
-            height: 500,
-            width: 500, subdivisions: 1
+            height: radius * 2 + 10,
+            width: radius * 2 + 10, subdivisions: 1
         }, this.scene);
 
         ground.position.y = .1;
@@ -41,11 +41,25 @@ class SceneManager {
         groundMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1); // Gray color
         ground.material = groundMaterial;
         const xrHelper = await this.scene.createDefaultXRExperienceAsync({
-            floorMeshes: [ground]
+            floorMeshes: [ground],
+            optionalFeatures: true
         });
         return xrHelper;
 
 
+
+    }
+
+    setupMultiRayCasting(xrHelper) {
+
+        xrHelper.baseExperience.featuresManager.enableFeature(
+            BABYLON.WebXRFeatureName.POINTER_SELECTION,
+            "latest", {
+            xrInput: xrHelper.input,
+            enablePointerSelectionOnAllControllers: true,
+            renderingGroupId: 1
+        }
+        )
 
     }
 
