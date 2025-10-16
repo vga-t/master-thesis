@@ -136,28 +136,31 @@ export class InteractionManager {
                                     const hitMesh = pickInfo.pickedMesh;
                                     const isCurved = (this.curvedHeat && hitMesh === this.curvedHeat.mesh) || (this.curvedTwoTone && hitMesh === this.curvedTwoTone.mesh);
                                     if (isCurved) {
-                                        const p = pickInfo.pickedPoint;
-                                        if (p && this.cartesian) {
-                                            // console.log(`Picked point in 3D ${p}`);
-                                            const R = this.layout.radius;
-                                            const angle = Math.atan2(p.x, p.z + R);
-                                            const u = (angle / this.layout.arcAngle) + 0.5;
-                                            // const visibleRows = Math.max(1, this.layout.visibleRows);
-                                            // const bottom = this.layout.groundOffset + this.layout.cellHeight / 2;
-                                            // const top = bottom + Math.max(0, (visibleRows - 1) * this.layout.cellHeight);
-                                            // const span = Math.max(1e-6, top - bottom);
-                                            // const v = (p.y - bottom) / span;
-                                            const bottom = this.layout.groundOffset;
-                                            const top = bottom + this.layout.height;
-                                            const span = Math.max(1e-6, top - bottom);
-                                            // const v = 1.0 - ((p.y - bottom) / span);
-                                            const v = (p.y - bottom) / span;
-                                            const uClamped = Math.max(0, Math.min(1, u));
-                                            const vClamped = Math.max(0, Math.min(1, v));
-                                            this.cartesian.setFocus(uClamped, vClamped);
-                                            if (!cartesianActive) {
-                                                this.cartesian.setEnabled(true);
-                                                cartesianActive = true;
+                                        if (this.cartesian) {
+                                            const texCoords = typeof pickInfo.getTextureCoordinates === "function"
+                                                ? pickInfo.getTextureCoordinates()
+                                                : null;
+                                            const uvs = texCoords ?? (() => {
+                                                const p = pickInfo.pickedPoint;
+                                                if (!p) return null;
+                                                const R = this.layout.radius;
+                                                const angle = Math.atan2(p.x, p.z + R);
+                                                const u = (angle / this.layout.arcAngle) + 0.5;
+                                                const bottom = this.layout.groundOffset;
+                                                const top = bottom + this.layout.height;
+                                                const span = Math.max(1e-6, top - bottom);
+                                                const v = (p.y - bottom) / span;
+                                                return new BABYLON.Vector2(u, v);
+                                            })();
+
+                                            if (uvs) {
+                                                const uClamped = Math.max(0, Math.min(1, uvs.x));
+                                                const vClamped = Math.max(0, Math.min(1, uvs.y));
+                                                this.cartesian.setFocus(uClamped, vClamped);
+                                                if (!cartesianActive) {
+                                                    this.cartesian.setEnabled(true);
+                                                    cartesianActive = true;
+                                                }
                                             }
                                         }
                                     } else {

@@ -196,7 +196,8 @@ export class CurvedTwoToneVisualization {
                     split = 1.0;
                 }
 
-                const o = idx * 4;
+                const flippedRow = height - 1 - r; // align texture rows with instanced orientation
+                const o = (flippedRow * width + c) * 4;
                 splitPixels[o + 0] = Math.round(Math.max(0, Math.min(1, split)) * 255);
                 splitPixels[o + 1] = 0;
                 splitPixels[o + 2] = 0;

@@ -189,7 +189,8 @@ export class CurvedHeatMapVisualization {
                         break;
                 }
 
-                const offset = idx * 4;
+                const flippedRow = height - 1 - r; // align texture rows with instanced orientation
+                const offset = (flippedRow * width + c) * 4;
                 pixels[offset + 0] = rgb[0];
                 pixels[offset + 1] = rgb[1];
                 pixels[offset + 2] = rgb[2];
