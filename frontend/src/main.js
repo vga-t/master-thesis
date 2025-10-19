@@ -1,23 +1,29 @@
 import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js";
 import CurvedHeatMapVisualization from "./Visualization/CurvedHeatMap.js";
 import CurvedTwoToneVisualization from "./Visualization/CurvedTwoTone.js";
-import CartesianDistortionController from "../Interaction/CartesianDistortion.js";
+import CartesianDistortionController from "./Interaction/CartesianDistortion.js";
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
-import { InteractionManager } from "../Interaction/InteractionManager.js";
+import { InteractionManager } from "./Interaction/InteractionManager.js";
 
 
 
 import SceneManager from "./sceneManager.js";
 import loadCSV from "./dataLoader.js";
 import LCVDSLayout from "./LCVDSLayout.js";
-
-
 const radius = 6;
 
 const csvData = await loadCSV("http://localhost:8000/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
-const layout = new LCVDSLayout(csvData, { arcAngle: 2 * Math.PI / 3, radius: radius, height: 3, groundOffset: 0.1 });
+const columnCount = csvData.length ? Object.keys(csvData[0]).length : 0;
+const layout = new LCVDSLayout(csvData, {
+    arcAngle: 2 * Math.PI / 3,
+    radius: radius,
+    height: 3,
+    groundOffset: 0.1,
+    viewportRows: Math.min(csvData.length || 1, 48),
+    viewportCols: Math.min(columnCount || 1, 12)
+});
 console.log("Column metadata:", layout.columnMetadata);
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const curvedHeat = new CurvedHeatMapVisualization(layout, { heatMapConfig }, scene);
@@ -26,7 +32,7 @@ const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
 const xrHelper = await sceneManager.setupXR(radius).catch("Cannot set XR up");
 sceneManager.setupMultiRayCasting(xrHelper);
 
-heatMap.render(6);
+heatMap.render();
 heatMap.basePlane.isVisible = false;
 curvedHeat.mesh.isVisible = false;
 curvedTwoTone.mesh.isVisible = false;

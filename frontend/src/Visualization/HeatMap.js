@@ -26,68 +26,82 @@ export const heatMapConfig = {
 
 export class HeatMapVisualization {
     constructor(layout, { heatMapConfig }, scene) {
-        this.dataArray = layout.dataArray;
-        this.columnMetadata = layout.columnMetadata;
-        this.positionMatrix = layout.positionMatrix;
-        this.dataArray = layout.dataArray;
-        this.config = heatMapConfig;
         this.layout = layout;
+        this.config = heatMapConfig;
+        this.scene = scene;
         this.colorMapping = heatMapConfig.colorMapping.bind(heatMapConfig);
         this.colorListLength = heatMapConfig.colorListLength;
-        this.cellWidth = layout.cellWidth;
-        this.cellHeight = layout.cellHeight;
-        this.numCols = layout.numCols;
-        this.numRows = layout.numRows;
+
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneHeatMap",
-            { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
         this.basePlane.material = new BABYLON.StandardMaterial("planeMaterial", scene);
+
+        this._removeObserver = this.layout.addObserver(snapshot => this.render(snapshot));
     }
 
-    render() {
-        const colorsArr = [];
-        const neutralColor = [0.5, 0.5, 0.5]; // Gray for constant columns
+    render(snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this.basePlane.thinInstanceSetBuffer("matrix", new Float32Array(0), 16);
+            this.basePlane.thinInstanceSetBuffer("color", new Float32Array(0), 4);
+            return;
+        }
 
-        for (let idx = 0; idx < this.dataArray.length; idx++) {
-            const data = this.dataArray[idx];
-            const colIndex = idx % this.numCols;
-            const colKey = this.layout.columnKeys[colIndex];
+        const { positionMatrix, normalizedData, columnKeys, colCount } = snapshot;
+        const colorsArr = new Float32Array(normalizedData.length * 4);
+        const neutralColor = [0.5, 0.5, 0.5];
+
+        for (let idx = 0; idx < normalizedData.length; idx++) {
+            const value = normalizedData[idx];
+            const colIndex = idx % colCount;
+            const colKey = columnKeys[colIndex];
             const meta = this.layout.columnMetadata[colKey];
             const colorIndex = colIndex % this.colorListLength;
 
-            switch (meta.type) {
-                case 'numeric':
-                case 'date': {
-                    const [r, g, b] = this.colorMapping(data, colorIndex);
-                    colorsArr.push(r, g, b, 1);
+            let r = neutralColor[0];
+            let g = neutralColor[1];
+            let b = neutralColor[2];
+
+            switch (meta?.type) {
+                case "numeric":
+                case "date": {
+                    const mapped = this.colorMapping(value, colorIndex) ?? [0.5, 0.5, 0.5];
+                    r = mapped[0];
+                    g = mapped[1];
+                    b = mapped[2];
                     break;
                 }
-                case 'categorical': {
-                    // Use hue from colorList, but keep lightness constant for categories
+                case "categorical": {
                     const baseColor = this.config.colorList[colorIndex];
-                    const categoryIndex = Math.round(data * (meta.categories.length - 1));
-                    // Simple variation to distinguish categories, e.g., by lightness steps
+                    const categoryIndex = meta.categories.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
                     const lightness = 40 + (categoryIndex % 5) * 10;
                     baseColor.l = lightness;
-                    const [r, g, b] = baseColor.srgb;
-                    colorsArr.push(r, g, b, 1);
+                    const [cr, cg, cb] = baseColor.srgb;
+                    r = cr;
+                    g = cg;
+                    b = cb;
                     break;
                 }
-                case 'constant':
-                default: {
-                    colorsArr.push(...neutralColor, 1);
+                case "constant":
+                default:
                     break;
-                }
             }
+
+            const offset = idx * 4;
+            colorsArr[offset + 0] = r;
+            colorsArr[offset + 1] = g;
+            colorsArr[offset + 2] = b;
+            colorsArr[offset + 3] = 1;
         }
 
-        this.basePlane.thinInstanceSetBuffer("matrix", this.positionMatrix, 16);
+        this.basePlane.thinInstanceSetBuffer("matrix", positionMatrix, 16);
         this.basePlane.thinInstanceSetBuffer("color", colorsArr, 4);
     }
 
     dispose() {
+        this._removeObserver?.();
         this.basePlane.dispose();
     }
 }

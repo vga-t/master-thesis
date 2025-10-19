@@ -7,22 +7,16 @@ export class CurvedHeatMapVisualization {
         this.scene = scene;
         this.config = heatMapConfig;
 
-        const { dataArray } = layout.computeCellPositions();
-        this.dataArray = dataArray;
-
-        this.numCols = layout.numCols;
-        this.numRows = layout.numRows - 1;
-        this.cellWidth = layout.cellWidth;
+        this.visibleCols = layout.visibleCols;
+        this.visibleRows = layout.visibleRows;
         this.cellHeight = layout.cellHeight;
         this.arcAngle = layout.arcAngle;
         this.radius = layout.radius;
+        this.arcLength = layout.arcLength;
+        this.height = layout.height;
 
-        this.height = this.cellHeight * this.numRows;
-        this.arcLength = this.radius * this.arcAngle;
-
-
-        const subX = Math.max(this.numCols, 256);
-        const subY = Math.max(this.numRows, 64);
+        const subX = Math.max(this.visibleCols, 256);
+        const subY = Math.max(this.visibleRows, 64);
         this.mesh = BABYLON.MeshBuilder.CreateGround("curvedHeatPlane", {
             width: this.arcLength,
             height: this.height,
@@ -31,7 +25,10 @@ export class CurvedHeatMapVisualization {
         }, scene);
 
         this._curvePlaneGeometry();
-        this._applyDataTextureAndShader();
+        this._ensureShaders();
+        this._createMaterial();
+
+        this._removeObserver = this.layout.addObserver(snapshot => this._updateDataTexture(snapshot));
     }
 
     _curvePlaneGeometry() {
@@ -39,8 +36,9 @@ export class CurvedHeatMapVisualization {
         const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
         const indices = mesh.getIndices();
         const w = this.arcLength;
-        const h = this.height;
-        const centerYOffset = this.layout.groundOffset + (this.numRows / 2 + 0.5) * this.cellHeight;
+
+        const a = this.height !== 0 ? (this.cellHeight - this.height) / this.height : 0;
+        const centerYOffset = this.layout.groundOffset + this.height / 2;
 
         for (let i = 0; i < positions.length; i += 3) {
             const x = positions[i + 0];
@@ -50,7 +48,7 @@ export class CurvedHeatMapVisualization {
 
             const newX = this.radius * Math.sin(angle);
             const newZ = this.radius * Math.cos(angle) - this.radius;
-            const newY = z + centerYOffset;
+            const newY = a * z + centerYOffset;
 
             positions[i + 0] = newX;
             positions[i + 1] = newY;
@@ -63,120 +61,59 @@ export class CurvedHeatMapVisualization {
         mesh.setVerticesData(BABYLON.VertexBuffer.NormalKind, normals);
     }
 
-    _applyDataTextureAndShader() {
+    _ensureShaders() {
+        if (!BABYLON.Effect.ShadersStore["curvedHeatVertexShader"]) {
+            BABYLON.Effect.ShadersStore["curvedHeatVertexShader"] = `
+                precision highp float;
+                attribute vec3 position;
+                attribute vec2 uv;
 
-        const width = this.numCols;
-        const height = this.numRows;
-        const pixels = new Uint8Array(width * height * 4);
-        const colorListLength = this.config.colorListLength ?? (this.config.colorList?.length || 1);
-        const neutral = [128, 128, 128];
+                uniform mat4 worldViewProjection;
+                uniform float uEnableCartesian;
+                uniform float uFocusCol;
+                uniform float uFocusRow;
+                uniform float uD;
+            
+                varying vec2 vUV;
 
-        for (let r = 0; r < height; r++) {
-            for (let c = 0; c < width; c++) {
-                const idx = r * width + c;
-                const value = this.dataArray[idx];
-                const colKey = this.layout.columnKeys[c];
-                const meta = this.layout.columnMetadata[colKey];
-                const colorIndex = c % colorListLength;
-                let rgb;
-                switch (meta.type) {
-                    case 'numeric':
-                    case 'date': {
-                        rgb = this.config.colorMapping(value, colorIndex);
-                        rgb = [
-                            Math.round(255 * Math.max(0, Math.min(1, rgb[0]))),
-                            Math.round(255 * Math.max(0, Math.min(1, rgb[1]))),
-                            Math.round(255 * Math.max(0, Math.min(1, rgb[2])))
-                        ];
-                        break;
-                    }
-                    case 'categorical': {
-                        const baseColor = this.config.colorList[colorIndex];
-                        const categoryIndex = Math.round(value * Math.max(0, (meta.categories.length - 1)));
-                        const lightness = 40 + (categoryIndex % 5) * 10;
-                        baseColor.l = lightness;
-                        const [r0, g0, b0] = baseColor.srgb;
-                        rgb = [Math.round(255 * r0), Math.round(255 * g0), Math.round(255 * b0)];
-                        break;
-                    }
-                    case 'constant':
-                    default: {
-                        rgb = neutral;
-                        break;
-                    }
+                float distort1D(float x, float focus, float D) {
+                    float dnorm = abs(x - focus);
+                    if (dnorm < 1e-6) return focus;
+                    float Dmax = (x < focus) ? focus : (1.0 - focus);
+                    float scale = (D + 1.0) / (D + (Dmax / dnorm));
+                    float signv = sign(x - focus);
+                    float x2 = focus + signv * (dnorm * scale);
+                    return clamp(x2, 0.0, 1.0);
                 }
-                const o = idx * 4;
-                pixels[o + 0] = rgb[0];
-                pixels[o + 1] = rgb[1];
-                pixels[o + 2] = rgb[2];
-                pixels[o + 3] = 255;
-            }
+
+                void main() {
+                    float ux = uv.x;
+                    float vy = (uEnableCartesian > 0.5) ? distort1D(uv.y, uFocusRow, uD) : uv.y;
+                    vUV = vec2(ux, vy);
+                    gl_Position = worldViewProjection * vec4(position, 1.0);
+                }
+            `;
         }
 
-        const texture = new BABYLON.RawTexture(
-            pixels, width, height, BABYLON.Engine.TEXTUREFORMAT_RGBA,
-            this.scene, false, true, BABYLON.Texture.NEAREST_SAMPLINGMODE
-        );
-        texture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
-        texture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
-        this._dataTexture = texture;
+        if (!BABYLON.Effect.ShadersStore["curvedHeatFragmentShader"]) {
+            BABYLON.Effect.ShadersStore["curvedHeatFragmentShader"] = `
+                precision highp float;
+                varying vec2 vUV;
 
+                uniform sampler2D texData;
+                uniform float uCols;
+                uniform float uRows;
 
-        BABYLON.Effect.ShadersStore["curvedHeatVertexShader"] = `
-            precision highp float;
-            attribute vec3 position;
-            attribute vec2 uv;
+                void main() {
+                    vec2 cellCoord = vec2(floor(vUV.x * uCols), floor(vUV.y * uRows));
+                    vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
+                    gl_FragColor = texture2D(texData, uvCell);
+                }
+            `;
+        }
+    }
 
-            uniform mat4 worldViewProjection;
-            uniform float uEnableCartesian;
-            uniform float uFocusCol;
-            uniform float uFocusRow;
-            uniform float uD;
-            
-            varying vec2 vUV; // Will pass the *distorted* UV to the fragment shader
-
-            // Distortion function is now in the vertex shader
-            float distort1D(float x, float focus, float D) {
-                float dnorm = abs(x - focus);
-                if (dnorm < 1e-6) return focus;
-                float Dmax = (x < focus) ? focus : (1.0 - focus);
-                float scale = (D + 1.0) / (D + (Dmax / dnorm));
-                float signv = sign(x - focus);
-                float x2 = focus + signv * (dnorm * scale);
-                return clamp(x2, 0.0, 1.0);
-            }
-
-            void main() {
-                // Apply distortion to the vertex's UV coordinate
-                float ux = uv.x; // Horizontal distortion is commented out in original
-                float vy = (uEnableCartesian > 0.5) ? distort1D(uv.y, uFocusRow, uD) : uv.y;
-                
-                // Pass the newly calculated, distorted UV to the fragment shader
-                vUV = vec2(ux, vy);
-
-                gl_Position = worldViewProjection * vec4(position, 1.0);
-            }
-        `;
-
-
-        BABYLON.Effect.ShadersStore["curvedHeatFragmentShader"] = `
-            precision highp float;
-            varying vec2 vUV; // Receives the interpolated, pre-distorted UV
-            
-            uniform sampler2D texData;
-            uniform float uCols;
-            uniform float uRows;
-
-            void main() {
-                // The received vUV is already distorted.
-                // We still perform the cell-center sampling to avoid bleeding.
-                vec2 cellCoord = vec2(floor(vUV.x * uCols), floor(vUV.y * uRows));
-                vec2 uvCell = vec2((cellCoord.x + 0.5)/uCols, (cellCoord.y + 0.5)/uRows);
-                
-                gl_FragColor = texture2D(texData, uvCell);
-            }
-        `;
-
+    _createMaterial() {
         const mat = new BABYLON.ShaderMaterial("curvedHeatMat", this.scene, {
             vertex: "curvedHeat",
             fragment: "curvedHeat"
@@ -188,25 +125,110 @@ export class CurvedHeatMapVisualization {
 
         mat.disableLighting = true;
         mat.backFaceCulling = false;
-        mat.setTexture("texData", texture);
-        mat.setFloat("uCols", this.numCols);
-        mat.setFloat("uRows", this.numRows);
+        mat.setFloat("uCols", this.visibleCols);
+        mat.setFloat("uRows", this.visibleRows);
         mat.setFloat("uEnableCartesian", 0.0);
         mat.setFloat("uFocusCol", 0.5);
         mat.setFloat("uFocusRow", 0.5);
         mat.setFloat("uD", 3.5);
+
         this.mesh.material = mat;
     }
 
-    render() {
+    _updateDataTexture(snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            if (this._dataTexture) {
+                this._dataTexture.dispose();
+                this._dataTexture = null;
+            }
+            return;
+        }
 
+        const width = snapshot.colCount;
+        const height = snapshot.rowCount;
+        const pixels = new Uint8Array(width * height * 4);
+        const colorListLength = this.config.colorListLength ?? (this.config.colorList?.length || 1);
+        const neutral = [128, 128, 128];
+
+        for (let r = 0; r < height; r++) {
+            for (let c = 0; c < width; c++) {
+                const idx = r * width + c;
+                const value = snapshot.normalizedData[idx];
+                const colKey = snapshot.columnKeys[c];
+                const meta = this.layout.columnMetadata[colKey];
+                const colorIndex = c % colorListLength;
+
+                let rgb = neutral;
+
+                switch (meta?.type) {
+                    case "numeric":
+                    case "date": {
+                        const mapped = this.config.colorMapping(value, colorIndex) ?? [0.5, 0.5, 0.5];
+                        rgb = [
+                            Math.round(255 * Math.max(0, Math.min(1, mapped[0]))),
+                            Math.round(255 * Math.max(0, Math.min(1, mapped[1]))),
+                            Math.round(255 * Math.max(0, Math.min(1, mapped[2])))
+                        ];
+                        break;
+                    }
+                    case "categorical": {
+                        const baseColor = this.config.colorList[colorIndex];
+                        const categoryCount = meta.categories.length;
+                        const categoryIndex = categoryCount > 1 ? Math.round(value * (categoryCount - 1)) : 0;
+                        const lightness = 40 + (categoryIndex % 5) * 10;
+                        baseColor.l = lightness;
+                        const [r0, g0, b0] = baseColor.srgb;
+                        rgb = [Math.round(255 * r0), Math.round(255 * g0), Math.round(255 * b0)];
+                        break;
+                    }
+                    case "constant":
+                    default:
+                        break;
+                }
+
+                const offset = idx * 4;
+                pixels[offset + 0] = rgb[0];
+                pixels[offset + 1] = rgb[1];
+                pixels[offset + 2] = rgb[2];
+                pixels[offset + 3] = 255;
+            }
+        }
+
+        if (!this._dataTexture || this._dataTexture.getSize().width !== width || this._dataTexture.getSize().height !== height) {
+            if (this._dataTexture) this._dataTexture.dispose();
+            this._dataTexture = new BABYLON.RawTexture(
+                pixels,
+                width,
+                height,
+                BABYLON.Engine.TEXTUREFORMAT_RGBA,
+                this.scene,
+                false,
+                true,
+                BABYLON.Texture.NEAREST_SAMPLINGMODE
+            );
+            this._dataTexture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+            this._dataTexture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+        } else {
+            this._dataTexture.update(pixels);
+        }
+
+        const mat = this.mesh.material;
+        if (mat) {
+            mat.setTexture("texData", this._dataTexture);
+            mat.setFloat("uCols", width);
+            mat.setFloat("uRows", height);
+        }
+    }
+
+    render() {
+        this._updateDataTexture();
     }
 
     dispose() {
+        this._removeObserver?.();
         if (this.mesh) this.mesh.dispose();
         if (this._dataTexture) this._dataTexture.dispose();
     }
-
 
     setCartesianEnabled(enabled) {
         const mat = this.mesh?.material;
@@ -221,7 +243,7 @@ export class CurvedHeatMapVisualization {
     }
     setCartesianD(d) {
         this._lastD = d;
-        if (this.mesh && this.mesh.material && typeof this.mesh.material.setFloat === 'function') {
+        if (this.mesh && this.mesh.material && typeof this.mesh.material.setFloat === "function") {
             this.mesh.material.setFloat("uD", d);
         }
     }

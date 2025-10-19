@@ -5,7 +5,7 @@ import Color from "colorjs.io";
 export const twoToneConfig = {
     minValue: 0,
     maxValue: 1,
-    colorMapping(value, paletteList, colIndex, intervals=4) {
+    colorMapping(value, paletteList, colIndex, intervals = 4) {
         const { minValue, maxValue } = this;
 
         // clamp input value
@@ -90,65 +90,61 @@ export const twoToneConfig = {
 
 export class TwoToneVisualization {
     constructor(layout, { twoToneConfig }, scene) {
-        this.positionMatrix = layout.positionMatrix;
-        this.dataArray = layout.dataArray;
-        this.columnMetadata = layout.columnMetadata;
+        this.layout = layout;
         this.config = twoToneConfig;
         this.scene = scene;
-        this.layout = layout;
-
-        this.cellWidth = layout.cellWidth;
-        this.cellHeight = layout.cellHeight;
-        this.numCols = layout.numCols;
-        this.numRows = layout.numRows;
 
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneTwoTone",
-            { height: this.cellHeight, width: this.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
 
 
-        BABYLON.Effect.ShadersStore["twoToneVertexShader"] = `
-            precision highp float;
-            attribute vec3 position;
-            attribute vec2 uv;
-            attribute vec4 world0;
-            attribute vec4 world1;
-            attribute vec4 world2;
-            attribute vec4 world3;
-            attribute float split;
-            attribute vec4 splitColor1;
-            attribute vec4 splitColor2;
-            uniform mat4 viewProjection;
-            varying vec2 vUV;
-            varying float vSplit;
-            varying vec4 vColor1;
-            varying vec4 vColor2;
-            void main(void) {
-                vUV = uv;
-                vSplit = split;
-                vColor1 = splitColor1;
-                vColor2 = splitColor2;
-                mat4 world = mat4(world0, world1, world2, world3);
-                gl_Position = viewProjection * world * vec4(position, 1.0);
-            }
-        `;
-
-        BABYLON.Effect.ShadersStore["twoToneFragmentShader"] = `
-            precision highp float;
-            varying vec2 vUV;
-            varying float vSplit;
-            varying vec4 vColor1;
-            varying vec4 vColor2;
-            void main(void) {
-                if (vUV.x > vSplit) {
-                    gl_FragColor = vColor1;
-                } else {
-                    gl_FragColor = vColor2;
+        if (!BABYLON.Effect.ShadersStore["twoToneVertexShader"]) {
+            BABYLON.Effect.ShadersStore["twoToneVertexShader"] = `
+                precision highp float;
+                attribute vec3 position;
+                attribute vec2 uv;
+                attribute vec4 world0;
+                attribute vec4 world1;
+                attribute vec4 world2;
+                attribute vec4 world3;
+                attribute float split;
+                attribute vec4 splitColor1;
+                attribute vec4 splitColor2;
+                uniform mat4 viewProjection;
+                varying vec2 vUV;
+                varying float vSplit;
+                varying vec4 vColor1;
+                varying vec4 vColor2;
+                void main(void) {
+                    vUV = uv;
+                    vSplit = split;
+                    vColor1 = splitColor1;
+                    vColor2 = splitColor2;
+                    mat4 world = mat4(world0, world1, world2, world3);
+                    gl_Position = viewProjection * world * vec4(position, 1.0);
                 }
-            }
-        `;
+            `;
+        }
+
+        if (!BABYLON.Effect.ShadersStore["twoToneFragmentShader"]) {
+            BABYLON.Effect.ShadersStore["twoToneFragmentShader"] = `
+                precision highp float;
+                varying vec2 vUV;
+                varying float vSplit;
+                varying vec4 vColor1;
+                varying vec4 vColor2;
+                void main(void) {
+                    if (vUV.x > vSplit) {
+                        gl_FragColor = vColor1;
+                    } else {
+                        gl_FragColor = vColor2;
+                    }
+                }
+            `;
+        }
 
         const shaderMat = new BABYLON.ShaderMaterial("twoToneMat", scene, {
             vertex: "twoTone",
@@ -159,61 +155,92 @@ export class TwoToneVisualization {
         });
 
         this.basePlane.material = shaderMat;
+
+        this._lastPaletteCount = 6;
+        this._lastIntervals = undefined;
+        this._removeObserver = this.layout.addObserver(snapshot => this._handleLayoutUpdate(snapshot));
     }
 
-    render(paletteCount = 6, intervals = undefined) {
-        const splitArr = [];
-        const color1Arr = [];
-        const color2Arr = [];
-        const neutralColor = [1, 1, 1];
-        const paletteList = this.config.colorList.slice(0, paletteCount);
-        console.log(`first element in dataArray: ${this.dataArray.slice(0, 18)}`);
-        for (let idx = 0; idx < this.dataArray.length; idx++) {
-            const value = this.dataArray[idx];
-            const colIndex = idx % this.numCols;
-            const colKey = this.layout.columnKeys[colIndex];
-            const meta = this.layout.columnMetadata[colKey];
+    _handleLayoutUpdate(snapshot) {
+        this.render(this._lastPaletteCount, this._lastIntervals, snapshot);
+    }
 
+    render(paletteCount = 6, intervals = undefined, snapshot = this.layout.getVisibleSnapshot()) {
+        this._lastPaletteCount = paletteCount;
+        this._lastIntervals = intervals;
 
-
-            switch (meta.type) {
-                case 'numeric':
-                case 'date': {
-                    const { c1, c2, splitRatio } = this.config.colorMapping(value, paletteList, colIndex, intervals);
-                    color1Arr.push(c1[0] / 255, c1[1] / 255, c1[2] / 255, 1);
-                    color2Arr.push(c2[0] / 255, c2[1] / 255, c2[2] / 255, 1);
-                    splitArr.push(splitRatio);
-                    break;
-                }
-                case 'categorical': {
-                    const palette = paletteList[colIndex % paletteList.length];
-                    // Use normalized value to pick a color from the palette
-                    const categoryIndex = Math.round(value * (meta.categories.length - 1));
-                    const color = palette[categoryIndex % palette.length];
-                    // Use same color for c1 and c2 to create a solid fill
-                    color1Arr.push(color[0] / 255, color[1] / 255, color[2] / 255, 1);
-                    color2Arr.push(color[0] / 255, color[1] / 255, color[2] / 255, 1);
-                    splitArr.push(1.0); // Full bar
-                    break;
-                }
-                case 'constant':
-                default: {
-                    // Use a neutral color for constant data
-                    color1Arr.push(...neutralColor, 1);
-                    color2Arr.push(...neutralColor, 1);
-                    splitArr.push(1.0); // Full bar
-                    break;
-                }
-            }
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this.basePlane.thinInstanceSetBuffer("matrix", new Float32Array(0), 16);
+            this.basePlane.thinInstanceSetBuffer("split", new Float32Array(0), 1);
+            this.basePlane.thinInstanceSetBuffer("splitColor1", new Float32Array(0), 4);
+            this.basePlane.thinInstanceSetBuffer("splitColor2", new Float32Array(0), 4);
+            return;
         }
 
-        this.basePlane.thinInstanceSetBuffer("matrix", this.positionMatrix, 16);
+        const { positionMatrix, normalizedData, columnKeys, colCount } = snapshot;
+
+        const splitArr = new Float32Array(normalizedData.length);
+        const color1Arr = new Float32Array(normalizedData.length * 4);
+        const color2Arr = new Float32Array(normalizedData.length * 4);
+        const neutralColor = [1, 1, 1];
+        const paletteListRaw = this.config.colorList.slice(0, Math.max(1, paletteCount));
+        const paletteList = paletteListRaw.length ? paletteListRaw : this.config.colorList;
+
+        for (let idx = 0; idx < normalizedData.length; idx++) {
+            const value = normalizedData[idx];
+            const colIndex = idx % colCount;
+            const colKey = columnKeys[colIndex];
+            const meta = this.layout.columnMetadata[colKey];
+
+            let split = 1.0;
+            let colorOne = neutralColor;
+            let colorTwo = neutralColor;
+
+            switch (meta?.type) {
+                case "numeric":
+                case "date": {
+                    const mapping = this.config.colorMapping(value, paletteList, colIndex, intervals);
+                    colorOne = mapping?.c1 ?? neutralColor;
+                    colorTwo = mapping?.c2 ?? neutralColor;
+                    split = mapping?.splitRatio ?? 1.0;
+                    break;
+                }
+                case "categorical": {
+                    const palette = paletteList[colIndex % paletteList.length] ?? neutralColor;
+                    const categoryIndex = meta.categories.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
+                    const picked = palette[categoryIndex % palette.length] ?? neutralColor;
+                    colorOne = picked;
+                    colorTwo = picked;
+                    split = 1.0;
+                    break;
+                }
+                case "constant":
+                default:
+                    break;
+            }
+
+            splitArr[idx] = split;
+
+            const offset = idx * 4;
+            color1Arr[offset + 0] = (colorOne[0] ?? neutralColor[0]) / 255;
+            color1Arr[offset + 1] = (colorOne[1] ?? neutralColor[1]) / 255;
+            color1Arr[offset + 2] = (colorOne[2] ?? neutralColor[2]) / 255;
+            color1Arr[offset + 3] = 1;
+
+            color2Arr[offset + 0] = (colorTwo[0] ?? neutralColor[0]) / 255;
+            color2Arr[offset + 1] = (colorTwo[1] ?? neutralColor[1]) / 255;
+            color2Arr[offset + 2] = (colorTwo[2] ?? neutralColor[2]) / 255;
+            color2Arr[offset + 3] = 1;
+        }
+
+        this.basePlane.thinInstanceSetBuffer("matrix", positionMatrix, 16);
         this.basePlane.thinInstanceSetBuffer("split", splitArr, 1);
         this.basePlane.thinInstanceSetBuffer("splitColor1", color1Arr, 4);
         this.basePlane.thinInstanceSetBuffer("splitColor2", color2Arr, 4);
     }
 
     dispose() {
+        this._removeObserver?.();
         this.basePlane.dispose();
     }
 }

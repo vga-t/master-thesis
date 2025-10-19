@@ -1,3 +1,5 @@
+import * as BABYLON from "babylonjs";
+
 class SceneManager {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -44,6 +46,26 @@ class SceneManager {
             floorMeshes: [ground],
             optionalFeatures: true
         });
+        const featuresManager = xrHelper?.baseExperience?.featuresManager;
+        if (featuresManager) {
+            const teleportation = featuresManager.getEnabledFeature?.(BABYLON.WebXRFeatureName.TELEPORTATION);
+            if (teleportation?.detach) {
+                teleportation.detach();
+            }
+            try {
+                featuresManager.enableFeature(
+                    BABYLON.WebXRFeatureName.TELEPORTATION,
+                    "latest",
+                    {
+                        xrInput: xrHelper.input,
+                        floorMeshes: [ground],
+                        forceHandedness: "right"
+                    }
+                );
+            } catch (error) {
+                console.warn("Unable to reconfigure teleportation feature", error);
+            }
+        }
         return xrHelper;
 
 

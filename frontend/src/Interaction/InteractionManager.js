@@ -24,6 +24,15 @@ export class InteractionManager {
         this.curvedHeat?.mesh && (this.curvedHeat.mesh.isPickable = true);
         this.curvedTwoTone?.mesh && (this.curvedTwoTone.mesh.isPickable = true);
 
+        this._rowScrollSpeed = Math.max(6, Math.round(this.layout.visibleRows / 1.5));
+        this._colScrollSpeed = Math.max(3, Math.round(Math.max(1, this.layout.visibleCols) / 2));
+        this._leftScrollVelocity = { row: 0, col: 0 };
+        this._scrollAccumulator = { row: 0, col: 0 };
+        this._scrollObserver = null;
+        this._leftThumbstickComponent = null;
+        this._leftThumbstickObserver = null;
+
+        this._ensureScrollObserver();
 
 
         // this.leftController = null;
@@ -52,6 +61,7 @@ export class InteractionManager {
         this.xrHelper.input.onControllerAddedObservable.add((controller) => {
 
             controller.onMotionControllerInitObservable.add((motionController) => {
+                if (!motionController) return;
                 const triggerComponent = motionController.getComponent('xr-standard-trigger');
                 const squeezeComponent = motionController.getComponent('xr-standard-squeeze');
                 const xComponent = motionController.getComponent('x-button');
@@ -120,11 +130,15 @@ export class InteractionManager {
                                             const R = this.layout.radius;
                                             const angle = Math.atan2(p.x, p.z + R);
                                             const u = (angle / this.layout.arcAngle) + 0.5;
-                                            const visualRows = this.layout.numRows - 1;
-                                            const h = visualRows * this.layout.cellHeight;
-                                            const centerYOffset = this.layout.groundOffset + (visualRows / 2 + 0.5) * this.layout.cellHeight;
-                                            const zOrig = p.y - centerYOffset;
-                                            const v = (zOrig + h / 2) / h;
+                                            const visibleRows = Math.max(1, this.layout.visibleRows);
+                                            // const bottom = this.layout.groundOffset + this.layout.cellHeight / 2;
+                                            // const top = bottom + Math.max(0, (visibleRows - 1) * this.layout.cellHeight);
+                                            // const span = Math.max(1e-6, top - bottom);
+                                            // const v = (p.y - bottom) / span;
+                                            const bottom = this.layout.groundOffset;
+                                            const top = bottom + this.layout.height;
+                                            const span = Math.max(1e-6, top - bottom);
+                                            const v = 1.0 - ((p.y - bottom) / span);
                                             const uClamped = Math.max(0, Math.min(1, u));
                                             const vClamped = Math.max(0, Math.min(1, v));
                                             this.cartesian.setFocus(uClamped, vClamped);
@@ -164,12 +178,7 @@ export class InteractionManager {
                     });
                 }
                 else if (motionController.handness === "left") {
-
-                    triggerComponent.onButtonStateChangedObservable.add(() => {
-                        if (triggerComponent.pressed) {
-                            console.log("You just clicked left trigger");
-                        }
-                    });
+                    this._attachLeftController(motionController);
 
                 }
 
@@ -177,6 +186,111 @@ export class InteractionManager {
             })
         })
 
+    }
+
+    // _attachLeftController(motionController) {
+    //     const thumbstick = motionController.getComponent('xr-standard-thumbstick')
+    //         || motionController.getComponent('xr-standard-touchpad');
+
+    //     if (thumbstick) {
+    //         this._detachLeftThumbstick();
+    //         this._leftThumbstickComponent = thumbstick;
+    //         this._leftThumbstickObserver = thumbstick.onAxisValueChangedObservable.add(component => {
+    //             const axes = component?.axes ?? [0, 0];
+    //             const x = Array.isArray(axes) ? axes[0] ?? 0 : 0;
+    //             const y = Array.isArray(axes) ? axes[1] ?? 0 : 0;
+    //             this._leftScrollVelocity.col = this._applyDeadzone(x);
+    //             this._leftScrollVelocity.row = -this._applyDeadzone(y);
+    //         });
+    //     }
+
+    //     if (motionController.getComponent('xr-standard-trigger')) {
+    //         motionController.getComponent('xr-standard-trigger').onButtonStateChangedObservable.add(component => {
+    //             if (component.pressed) {
+    //                 console.log("Left trigger pressed");
+    //             }
+    //         });
+    //     }
+    // }
+    _attachLeftController(motionController) {
+        const thumbstick = motionController.getComponent('xr-standard-thumbstick')
+            || motionController.getComponent('xr-standard-touchpad');
+
+        if (thumbstick) {
+            this._detachLeftThumbstick();
+            this._leftThumbstickComponent = thumbstick;
+            this._leftThumbstickObserver = thumbstick.onAxisValueChangedObservable.add(axes => {
+                const x = this._applyDeadzone(axes.x);
+                const y = this._applyDeadzone(axes.y);
+                this._leftScrollVelocity.col = x;
+                this._leftScrollVelocity.row = -y;
+            });
+        }
+
+        if (motionController.getComponent('xr-standard-trigger')) {
+            motionController.getComponent('xr-standard-trigger').onButtonStateChangedObservable.add(component => {
+                if (component.pressed) {
+                    console.log("Left trigger pressed");
+                }
+            });
+        }
+    }
+    _applyDeadzone(value, deadZone = 0.1) {
+        return Math.abs(value) < deadZone ? 0 : value;
+    }
+
+    _detachLeftThumbstick() {
+        if (this._leftThumbstickComponent && this._leftThumbstickObserver) {
+            this._leftThumbstickComponent.onAxisValueChangedObservable.remove(this._leftThumbstickObserver);
+        }
+        this._leftThumbstickComponent = null;
+        this._leftThumbstickObserver = null;
+        this._leftScrollVelocity.row = 0;
+        this._leftScrollVelocity.col = 0;
+    }
+
+    _ensureScrollObserver() {
+        if (this._scrollObserver || !this.scene) return;
+        this._scrollObserver = this.scene.onBeforeRenderObservable.add(() => {
+            const engine = this.scene.getEngine();
+            if (!engine) return;
+            const dt = engine.getDeltaTime() / 1000;
+            if (!Number.isFinite(dt) || dt <= 0) return;
+
+            const rowDelta = this._leftScrollVelocity.row * this._rowScrollSpeed * dt;
+            const colDelta = this._leftScrollVelocity.col * this._colScrollSpeed * dt;
+
+            this._scrollAccumulator.row += rowDelta;
+            this._scrollAccumulator.col += colDelta;
+
+            const rowSteps = Math.trunc(this._scrollAccumulator.row);
+            if (rowSteps !== 0) {
+                const scrolled = this.layout.scrollBy(rowSteps, 0);
+                if (scrolled) {
+                    this._scrollAccumulator.row -= rowSteps;
+                } else {
+                    this._scrollAccumulator.row = 0;
+                }
+            }
+
+            const colSteps = Math.trunc(this._scrollAccumulator.col);
+            if (colSteps !== 0) {
+                const scrolled = this.layout.scrollBy(0, colSteps);
+                if (scrolled) {
+                    this._scrollAccumulator.col -= colSteps;
+                } else {
+                    this._scrollAccumulator.col = 0;
+                }
+            }
+        });
+
+        if (this.xrHelper) {
+            this.xrHelper.input.onControllerRemovedObservable.add(controller => {
+                if (controller?.motionController?.handness === "left") {
+                    this._detachLeftThumbstick();
+                }
+            });
+        }
     }
 
 
