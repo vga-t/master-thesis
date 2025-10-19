@@ -144,8 +144,10 @@ export class CurvedHeatMapVisualization {
             return;
         }
 
+        // Determine viewport dimensions and global column indices
         const width = snapshot.colCount;
         const height = snapshot.rowCount;
+        const columnIndices = snapshot.columnIndices;
         const pixels = new Uint8Array(width * height * 4);
         const colorListLength = this.config.colorListLength ?? (this.config.colorList?.length || 1);
         const neutral = [128, 128, 128];
@@ -156,7 +158,8 @@ export class CurvedHeatMapVisualization {
                 const value = snapshot.normalizedData[idx];
                 const colKey = snapshot.columnKeys[c];
                 const meta = this.layout.columnMetadata[colKey];
-                const colorIndex = c % colorListLength;
+                const globalCol = columnIndices[c];
+                const colorIndex = globalCol % colorListLength;
 
                 let rgb = neutral;
 

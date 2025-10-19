@@ -155,6 +155,7 @@ export class CurvedTwoToneVisualization {
 
         const width = snapshot.colCount;
         const height = snapshot.rowCount;
+        const columnIndices = snapshot.columnIndices;
 
         const splitPixels = new Uint8Array(width * height * 4);
         const c1Pixels = new Uint8Array(width * height * 4);
@@ -170,18 +171,19 @@ export class CurvedTwoToneVisualization {
                 const value = snapshot.normalizedData[idx];
                 const colKey = snapshot.columnKeys[c];
                 const meta = this.layout.columnMetadata[colKey];
+                const globalCol = columnIndices[c];
 
                 let colorOne = neutral;
                 let colorTwo = neutral;
                 let split = 1.0;
 
                 if (meta?.type === "numeric" || meta?.type === "date") {
-                    const mapping = this.config.colorMapping(value, paletteList, c, intervals);
+                    const mapping = this.config.colorMapping(value, paletteList, globalCol, intervals);
                     colorOne = mapping?.c1 ?? neutral;
                     colorTwo = mapping?.c2 ?? neutral;
                     split = mapping?.splitRatio ?? 1.0;
                 } else if (meta?.type === "categorical") {
-                    const palette = paletteList[c % paletteList.length] ?? neutral;
+                    const palette = paletteList[globalCol % paletteList.length] ?? neutral;
                     if (Array.isArray(palette[0])) {
                         const categoryIndex = meta.categories.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
                         const picked = palette[categoryIndex % palette.length] ?? neutral;

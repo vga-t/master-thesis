@@ -177,7 +177,7 @@ export class TwoToneVisualization {
             return;
         }
 
-        const { positionMatrix, normalizedData, columnKeys, colCount } = snapshot;
+        const { positionMatrix, normalizedData, columnKeys, columnIndices, colCount } = snapshot;
 
         const splitArr = new Float32Array(normalizedData.length);
         const color1Arr = new Float32Array(normalizedData.length * 4);
@@ -191,6 +191,7 @@ export class TwoToneVisualization {
             const colIndex = idx % colCount;
             const colKey = columnKeys[colIndex];
             const meta = this.layout.columnMetadata[colKey];
+            const globalCol = columnIndices[colIndex];
 
             let split = 1.0;
             let colorOne = neutralColor;
@@ -199,14 +200,14 @@ export class TwoToneVisualization {
             switch (meta?.type) {
                 case "numeric":
                 case "date": {
-                    const mapping = this.config.colorMapping(value, paletteList, colIndex, intervals);
+                    const mapping = this.config.colorMapping(value, paletteList, globalCol, intervals);
                     colorOne = mapping?.c1 ?? neutralColor;
                     colorTwo = mapping?.c2 ?? neutralColor;
                     split = mapping?.splitRatio ?? 1.0;
                     break;
                 }
                 case "categorical": {
-                    const palette = paletteList[colIndex % paletteList.length] ?? neutralColor;
+                    const palette = paletteList[globalCol % paletteList.length] ?? neutralColor;
                     const categoryIndex = meta.categories.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
                     const picked = palette[categoryIndex % palette.length] ?? neutralColor;
                     colorOne = picked;

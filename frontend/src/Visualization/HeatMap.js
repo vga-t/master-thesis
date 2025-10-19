@@ -49,7 +49,7 @@ export class HeatMapVisualization {
             return;
         }
 
-        const { positionMatrix, normalizedData, columnKeys, colCount } = snapshot;
+        const { positionMatrix, normalizedData, columnKeys, columnIndices, colCount } = snapshot;
         const colorsArr = new Float32Array(normalizedData.length * 4);
         const neutralColor = [0.5, 0.5, 0.5];
 
@@ -58,7 +58,8 @@ export class HeatMapVisualization {
             const colIndex = idx % colCount;
             const colKey = columnKeys[colIndex];
             const meta = this.layout.columnMetadata[colKey];
-            const colorIndex = colIndex % this.colorListLength;
+            const globalColIndex = columnIndices[colIndex];
+            const colorIndex = globalColIndex % this.colorListLength;
 
             let r = neutralColor[0];
             let g = neutralColor[1];
