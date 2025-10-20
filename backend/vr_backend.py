@@ -24,9 +24,9 @@ def read_root():
 
 @app.get("/csv")
 def get_csv():
-    csv_path = os.path.join(os.path.dirname(__file__),"csv/Leukemia.csv")  
+    csv_path = os.path.join(os.path.dirname(__file__),"csv/wine.csv")  
     if os.path.exists(csv_path):
-        return FileResponse(csv_path, media_type='text/csv', filename='Leukemia.csv')
+        return FileResponse(csv_path, media_type='text/csv', filename='wine.csv')
     else:
         return {"error": "CSV file not found"}
 
