@@ -39,7 +39,7 @@ export class InteractionManager {
         this.minimap.setVisible(false);
         this._minimapVisible = false;
         this._minimapPlaced = false;
-        this._minimapMode = "heatmap";
+        // this._minimapMode = "twotone";
         this._minimapInteraction = null;
         this._rightController = null;
         this._minimapUpdateObserver = this.scene.onBeforeRenderObservable.add(() => {
@@ -51,7 +51,7 @@ export class InteractionManager {
             totalRows: this.layout.totalRows,
             totalCols: this.layout.totalCols
         });
-        this.minimap.setMode(this._minimapMode);
+        // this.minimap.setMode(this._minimapMode);
 
 
         // this.leftController = null;

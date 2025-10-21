@@ -51,6 +51,7 @@ document.addEventListener("keypress", event => {
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
                 currentVis = heatMap;
                 currentVis.basePlane.isVisible = true;
+                interaction.setVisualizationMode("heatmap");
             }
             break;
         case "1":
@@ -59,6 +60,7 @@ document.addEventListener("keypress", event => {
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
                 currentVis = twoTone;
                 currentVis.basePlane.isVisible = true;
+                interaction.setVisualizationMode("twotone");
             };
             break;
         case "w":
