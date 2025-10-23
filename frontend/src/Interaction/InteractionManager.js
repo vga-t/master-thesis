@@ -350,6 +350,10 @@ export class InteractionManager {
         this._minimapVisible = visible;
         this.minimap.setVisible(visible);
         if (visible) {
+            this.minimap.refreshCanvasDimensions({
+                totalRows: this.layout.totalRows,
+                totalCols: this.layout.totalCols
+            });
             if (!this._minimapPlaced) {
                 this._placeMinimap(controller);
                 this._minimapPlaced = true;
@@ -463,8 +467,15 @@ export class InteractionManager {
         const scrollState = this.layout.getScrollState();
         const maxRow = Math.max(0, scrollState.maxRowOffset ?? 0);
         const maxCol = Math.max(0, scrollState.maxColOffset ?? 0);
-        const targetRow = maxRow > 0 ? Math.round(normalized.row * maxRow) : 0;
-        const targetCol = maxCol > 0 ? Math.round(normalized.col * maxCol) : 0;
+        const sensitivity = typeof this.minimap?.getScrollSensitivity === "function"
+            ? this.minimap.getScrollSensitivity()
+            : { row: 1, col: 1 };
+
+        const adjustedRowNorm = this._adjustViewportSensitivity(normalized.row, sensitivity.row);
+        const adjustedColNorm = this._adjustViewportSensitivity(normalized.col, sensitivity.col);
+
+        const targetRow = maxRow > 0 ? Math.round(adjustedRowNorm * maxRow) : 0;
+        const targetCol = maxCol > 0 ? Math.round(adjustedColNorm * maxCol) : 0;
         const changed = this.layout.setScrollOffsets(targetRow, targetCol);
         if (changed) {
             this.minimap.updateViewport(this.layout.getScrollState(), {
@@ -474,6 +485,21 @@ export class InteractionManager {
                 totalCols: this.layout.totalCols
             });
         }
+    }
+
+    _adjustViewportSensitivity(value, factor) {
+        const clampedValue = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+        const safeFactor = Math.max(0.4, Math.min(2.5, Number.isFinite(factor) && factor > 0 ? factor : 1));
+        if (Math.abs(safeFactor - 1) < 1e-3) {
+            return clampedValue;
+        }
+        const powValue = Math.pow(clampedValue, safeFactor);
+        const powInverse = Math.pow(1 - clampedValue, safeFactor);
+        const denominator = powValue + powInverse;
+        if (!Number.isFinite(denominator) || denominator <= 0) {
+            return clampedValue;
+        }
+        return powValue / denominator;
     }
 
     _syncMinimap() {
