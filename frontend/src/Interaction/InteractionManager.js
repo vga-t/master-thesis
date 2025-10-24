@@ -258,8 +258,8 @@ export class InteractionManager {
             this._leftThumbstickObserver = thumbstick.onAxisValueChangedObservable.add(axes => {
                 const x = this._applyDeadzone(axes.x);
                 const y = this._applyDeadzone(axes.y);
-                this._leftScrollVelocity.col = x;
-                this._leftScrollVelocity.row = -y;
+                this._leftScrollVelocity.col = -x;
+                this._leftScrollVelocity.row = y;
             });
         }
 
