@@ -4,15 +4,15 @@ import CurvedTwoToneVisualization from "./Visualization/CurvedTwoTone.js";
 import CartesianDistortionController from "./Interaction/CartesianDistortion.js";
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
 import { InteractionManager } from "./Interaction/InteractionManager.js";
-
+import AudioManager from "./audioManager.js";
 
 
 import SceneManager from "./sceneManager.js";
 import loadCSV from "./dataLoader.js";
 import LCVDSLayout from "./LCVDSLayout.js";
 const radius = 6;
-
-const csvData = await loadCSV("http://localhost:8000/csv");
+const BACKEND_URL = "http://localhost:8000";
+const csvData = await loadCSV(BACKEND_URL + "/csv");
 const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
 const columnCount = csvData.length ? Object.keys(csvData[0]).length : 0;
@@ -40,8 +40,26 @@ let currentVis = twoTone;
 const cartesian = new CartesianDistortionController([curvedHeat, curvedTwoTone]);
 currentVis.render(6);
 const interaction = new InteractionManager(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene);
+const audioManager = new AudioManager();
 
+audioManager.onTranscript = (transcript) => {
+    console.log(`Sending to backend: "${transcript}"`);
 
+    fetch(BACKEND_URL + "/process", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: transcript }),
+    })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Response from backend:", data);
+        })
+        .catch(error => {
+            console.error("Error sending to backend:", error);
+        });
+};
 
 document.addEventListener("keypress", event => {
     switch (event.key) {
@@ -72,6 +90,10 @@ document.addEventListener("keypress", event => {
         case "Q":
             cartesian.nudgeD(-0.5);
             console.log("Cartesian D:", cartesian.D);
+            break;
+        case "R":
+        case "r":
+            audioManager.toggleRecording();
             break;
         default:
             alert("Press 1 (TwoTone), 2 (HeatMap), 3 (Curved HeatMap), or 4 (Curved TwoTone) to switch visualization!");
