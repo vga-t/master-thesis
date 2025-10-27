@@ -64,6 +64,16 @@ export class AudioManager {
             this.start();
         }
     }
+
+    generateSpeech(message) {
+
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.rate = 0.8;
+        speechSynthesis.speak(utterance);
+
+    }
+
+
 }
 
 export default AudioManager;

@@ -36,5 +36,5 @@ def get_csv():
 def process_command(command: Command):
     user_text = command.text
     print(f"Received command: {user_text}")
-    response_data={"returned message":user_text+"-----from backend"}
+    response_data={"message":user_text+"-----from backend"}
     return response_data

@@ -54,7 +54,11 @@ audioManager.onTranscript = (transcript) => {
     })
         .then(response => response.json())
         .then(data => {
-            console.log("Response from backend:", data);
+            console.log("Response from backend:", data.message);
+
+            // Use an asynchronous function here for changing the state of the environment before speech is synthesized in the environment.
+            audioManager.generateSpeech(data.message);
+
         })
         .catch(error => {
             console.error("Error sending to backend:", error);
