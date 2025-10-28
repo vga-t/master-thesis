@@ -33,8 +33,8 @@ class LCVDSLayout {
         this.cellHeight = this.visibleRows > 0 ? this.height / this.visibleRows : 0;
 
         this.scrollRowOffset = 0;
-        // this.scrollColOffset = 0;
-        this.scrollColOffset = Math.max(0, this.totalCols - this.visibleCols);
+        this.scrollColOffset = 0;
+        // this.scrollColOffset = Math.max(0, this.totalCols - this.visibleCols);
 
         this.columnMetadata = this._inferColumnMetadata();
 

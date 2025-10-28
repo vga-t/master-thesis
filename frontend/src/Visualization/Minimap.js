@@ -151,7 +151,8 @@ class MinimapVisualization {
         const maxColOffset = Math.max(0, scrollState.maxColOffset ?? totalCols - visibleCols);
 
         const rowNorm = maxRowOffset > 0 ? (scrollState.rowOffset ?? 0) / maxRowOffset : 0;
-        const colNorm = maxColOffset > 0 ? (scrollState.colOffset ?? 0) / maxColOffset : 0;
+        // const colNorm = maxColOffset > 0 ? (scrollState.colOffset ?? 0) / maxColOffset : 0;
+        const colNorm = maxColOffset > 0 ? (maxColOffset - (scrollState.colOffset ?? 0)) / maxColOffset : 0;
 
         const halfWidth = this._width / 2;
         const halfHeight = this._height / 2;
