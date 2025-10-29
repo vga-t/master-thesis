@@ -475,7 +475,7 @@ export class InteractionManager {
         const adjustedColNorm = this._adjustViewportSensitivity(normalized.col, sensitivity.col);
 
         const targetRow = maxRow > 0 ? Math.round(adjustedRowNorm * maxRow) : 0;
-        const targetCol = maxCol > 0 ? Math.round(adjustedColNorm * maxCol) : 0;
+        const targetCol = maxCol > 0 ? Math.round((1 - adjustedColNorm) * maxCol) : 0;
         const changed = this.layout.setScrollOffsets(targetRow, targetCol);
         if (changed) {
             this.minimap.updateViewport(this.layout.getScrollState(), {
