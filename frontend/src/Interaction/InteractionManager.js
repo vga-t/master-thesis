@@ -2,15 +2,12 @@ import * as BABYLON from "babylonjs";
 import MinimapVisualization from "../Visualization/Minimap.js";
 
 export class InteractionManager {
-    constructor(layout, { heatMap, twoTone, curvedHeat, curvedTwoTone, cartesian }, xrHelper, scene) {
+    constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
         this.xrHelper = xrHelper;
         this.scene = scene;
         this.layout = layout;
         this.heatMap = heatMap;
         this.twoTone = twoTone;
-        this.curvedHeat = curvedHeat;
-        this.curvedTwoTone = curvedTwoTone;
-        this.cartesian = cartesian;
 
         if (this.heatMap?.basePlane) {
             this.heatMap.basePlane.isPickable = true;
@@ -21,9 +18,6 @@ export class InteractionManager {
             this.twoTone.basePlane.isPickable = true;
             this.twoTone.basePlane.thinInstanceEnablePicking = true;
         }
-
-        this.curvedHeat?.mesh && (this.curvedHeat.mesh.isPickable = true);
-        this.curvedTwoTone?.mesh && (this.curvedTwoTone.mesh.isPickable = true);
 
         this._rowScrollSpeed = Math.max(6, Math.round(this.layout.visibleRows / 1.5));
         this._colScrollSpeed = Math.max(3, Math.round(Math.max(1, this.layout.visibleCols) / 2));
@@ -95,101 +89,40 @@ export class InteractionManager {
 
                     let hoverObserver = null;
                     let lastIndex = null;
-                    let cartesianActive = false;
 
-                    const disableCartesian = () => {
-                        if (this.cartesian && cartesianActive) {
-                            this.cartesian.setEnabled(false);
-                            cartesianActive = false;
+                    const startPicking = () => {
+                        if (hoverObserver) return;
+                        hoverObserver = this.scene.onBeforeRenderObservable.add(() => {
+                            const ray = this._buildForwardRay(rightController);
+                            if (!ray) return;
+                            const targetMesh = this.twoTone.basePlane?.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
+                            if (!targetMesh) return;
+                            const pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
+                            if (pickInfo?.hit) {
+                                const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
+                                if (idx !== lastIndex && idx != null) {
+                                    lastIndex = idx;
+                                    console.log("Picked thin-instance index:", idx);
+                                }
+                            }
+                        });
+                    };
+
+                    const stopPicking = () => {
+                        if (hoverObserver) {
+                            this.scene.onBeforeRenderObservable.remove(hoverObserver);
+                            hoverObserver = null;
                         }
+                        lastIndex = null;
                     };
 
                     triggerComponent.onButtonStateChangedObservable.add(component => {
                         if (!component.changes.pressed) return;
 
                         if (component.pressed) {
-                            if (this.twoTone.basePlane?.isVisible) {
-                                this.curvedTwoTone.render(7);
-                                this.twoTone.basePlane.isVisible = false;
-                                this.curvedTwoTone.mesh.isVisible = true;
-                            } else if (this.heatMap.basePlane?.isVisible) {
-                                this.heatMap.basePlane.isVisible = false;
-                                this.curvedHeat.mesh.isVisible = true;
-                            }
-                            hoverObserver = this.scene.onBeforeRenderObservable.add(() => {
-                                let pickInfo = null;
-                                const ray = this._buildForwardRay(rightController);
-                                if (ray) {
-
-                                    const visibleCurved = (this.curvedTwoTone?.mesh?.isVisible ? this.curvedTwoTone.mesh : null)
-                                        || (this.curvedHeat?.mesh?.isVisible ? this.curvedHeat.mesh : null);
-                                    if (visibleCurved) {
-                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === visibleCurved);
-                                    }
-                                    if (!pickInfo || !pickInfo.hit) {
-                                        const targetMesh = this.twoTone.basePlane.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
-                                        pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
-                                    }
-                                }
-
-                                if (pickInfo && pickInfo.hit) {
-                                    const hitMesh = pickInfo.pickedMesh;
-                                    const isCurved = (this.curvedHeat && hitMesh === this.curvedHeat.mesh) || (this.curvedTwoTone && hitMesh === this.curvedTwoTone.mesh);
-                                    if (isCurved) {
-                                        if (this.cartesian) {
-                                            const texCoords = typeof pickInfo.getTextureCoordinates === "function"
-                                                ? pickInfo.getTextureCoordinates()
-                                                : null;
-                                            const uvs = texCoords ?? (() => {
-                                                const p = pickInfo.pickedPoint;
-                                                if (!p) return null;
-                                                const R = this.layout.radius;
-                                                const angle = Math.atan2(p.x, p.z + R);
-                                                const u = (angle / this.layout.arcAngle) + 0.5;
-                                                const bottom = this.layout.groundOffset;
-                                                const top = bottom + this.layout.height;
-                                                const span = Math.max(1e-6, top - bottom);
-                                                const v = (p.y - bottom) / span;
-                                                return new BABYLON.Vector2(u, v);
-                                            })();
-
-                                            if (uvs) {
-                                                const uClamped = Math.max(0, Math.min(1, uvs.x));
-                                                const vClamped = Math.max(0, Math.min(1, uvs.y));
-                                                this.cartesian.setFocus(uClamped, vClamped);
-                                                if (!cartesianActive) {
-                                                    this.cartesian.setEnabled(true);
-                                                    cartesianActive = true;
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
-                                        if (idx !== lastIndex && idx != null) {
-                                            lastIndex = idx;
-                                            console.log("Picked thin-instance index:", idx);
-                                            disableCartesian();
-                                        }
-                                    }
-                                }
-                            });
+                            startPicking();
                         } else {
-                            // On trigger release: revert back to flat visualization
-                            if (hoverObserver) {
-                                this.scene.onBeforeRenderObservable.remove(hoverObserver);
-                                hoverObserver = null;
-                            }
-                            lastIndex = null;
-                            disableCartesian();
-                            // Hide curved and restore flat
-                            if (this.curvedTwoTone.mesh?.isVisible) {
-                                this.curvedTwoTone.mesh.isVisible = false;
-                                this.twoTone.basePlane.isVisible = true;
-                            }
-                            if (this.curvedHeat.mesh?.isVisible) {
-                                this.curvedHeat.mesh.isVisible = false;
-                                this.heatMap.basePlane.isVisible = true;
-                            }
+                            stopPicking();
                         }
                     });
 
