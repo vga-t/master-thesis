@@ -14,11 +14,11 @@ const sceneManager = new SceneManager("renderCanvas");
 const scene = sceneManager.scene;
 const columnCount = csvData.length ? Object.keys(csvData[0]).length : 0;
 const layout = new LCVDSLayout(csvData, {
-    arcAngle: 2 * Math.PI / 3,
+    arcAngle: 3 * Math.PI / 2,
     radius: radius,
-    height: 3,
+    height: 5,
     groundOffset: 0.1,
-    viewportRows: Math.min(csvData.length || 1, 2),
+    viewportRows: Math.min(csvData.length || 1, 100),
     viewportCols: Math.min(columnCount || 1, 28)
 });
 console.log("Column metadata:", layout.columnMetadata);

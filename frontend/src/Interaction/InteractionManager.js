@@ -1,5 +1,6 @@
 import * as BABYLON from "babylonjs";
 import MinimapVisualization from "../Visualization/Minimap.js";
+import FocusPlusContext from "./Focus+Context.js";
 
 export class InteractionManager {
     constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
@@ -61,6 +62,13 @@ export class InteractionManager {
         // this.rightAButtonComponent = null;
         // this.rightBButtonComponent = null;
         // this.menuButtonComponent = null;
+        this.focusContext = new FocusPlusContext({
+            layout,
+            scene,
+            twoTone,
+            heatMap
+        });
+
         this._setupVRControllers();
 
 
@@ -87,44 +95,16 @@ export class InteractionManager {
                     const rightController = controller;
                     this._rightController = controller;
 
-                    let hoverObserver = null;
-                    let lastIndex = null;
-
-                    const startPicking = () => {
-                        if (hoverObserver) return;
-                        hoverObserver = this.scene.onBeforeRenderObservable.add(() => {
-                            const ray = this._buildForwardRay(rightController);
-                            if (!ray) return;
-                            const targetMesh = this.twoTone.basePlane?.isVisible ? this.twoTone.basePlane : this.heatMap.basePlane;
-                            if (!targetMesh) return;
-                            const pickInfo = this.scene.pickWithRay(ray, mesh => mesh === targetMesh);
-                            if (pickInfo?.hit) {
-                                const idx = pickInfo.thinInstanceIndex ?? pickInfo.instanceIndex;
-                                if (idx !== lastIndex && idx != null) {
-                                    lastIndex = idx;
-                                    console.log("Picked thin-instance index:", idx);
-                                }
+                    if (triggerComponent) {
+                        triggerComponent.onButtonStateChangedObservable.add(component => {
+                            if (!component.changes.pressed) return;
+                            if (component.pressed) {
+                                this.focusContext?.handleTriggerPress(rightController);
+                            } else {
+                                this.focusContext?.handleTriggerRelease();
                             }
                         });
-                    };
-
-                    const stopPicking = () => {
-                        if (hoverObserver) {
-                            this.scene.onBeforeRenderObservable.remove(hoverObserver);
-                            hoverObserver = null;
-                        }
-                        lastIndex = null;
-                    };
-
-                    triggerComponent.onButtonStateChangedObservable.add(component => {
-                        if (!component.changes.pressed) return;
-
-                        if (component.pressed) {
-                            startPicking();
-                        } else {
-                            stopPicking();
-                        }
-                    });
+                    }
 
                     if (bComponent) {
                         bComponent.onButtonStateChangedObservable.add(component => {
@@ -142,6 +122,17 @@ export class InteractionManager {
                                 this._startMinimapInteraction(rightController);
                             } else {
                                 this._endMinimapInteraction();
+                            }
+                        });
+                    }
+
+                    if (aComponent) {
+                        aComponent.onButtonStateChangedObservable.add(component => {
+                            if (!component.changes.pressed) return;
+                            if (component.pressed) {
+                                this.focusContext?.handlePanStart(rightController);
+                            } else {
+                                this.focusContext?.handlePanEnd();
                             }
                         });
                     }
@@ -257,6 +248,9 @@ export class InteractionManager {
             this.xrHelper.input.onControllerRemovedObservable.add(controller => {
                 if (controller?.motionController?.handness === "left") {
                     this._detachLeftThumbstick();
+                } else if (controller?.motionController?.handness === "right") {
+                    this.focusContext?.handleTriggerRelease?.();
+                    this.focusContext?.handlePanEnd?.();
                 }
             });
         }

@@ -40,7 +40,19 @@ class LCVDSLayout {
 
         this._observers = new Set();
         this._visibleSnapshot = null;
+        this._rowFocusStrategy = null;
+        this._colFocusStrategy = null;
 
+        this._recomputeVisibleData();
+    }
+
+    setRowFocusStrategy(strategy = null) {
+        this._rowFocusStrategy = strategy ? { ...strategy } : null;
+        this._recomputeVisibleData();
+    }
+
+    setColumnFocusStrategy(strategy = null) {
+        this._colFocusStrategy = strategy ? { ...strategy } : null;
         this._recomputeVisibleData();
     }
 
@@ -242,9 +254,40 @@ class LCVDSLayout {
             columnIndices.push(this.scrollColOffset + c);
         }
 
+        const rowWeightInfo = this._buildAxisWeights({
+            indices: rowIndices,
+            focusStrategy: this._rowFocusStrategy,
+            totalSpan: this.height,
+            baseSpan: rowCount > 0 ? this.height / rowCount : this.height,
+            minContextShare: this._rowFocusStrategy?.minContextShare ?? 0.05
+        });
+
+        const colWeightInfo = this._buildAxisWeights({
+            indices: columnIndices,
+            focusStrategy: this._colFocusStrategy,
+            totalSpan: this.arcAngle,
+            baseSpan: colCount > 0 ? this.arcAngle / colCount : this.arcAngle,
+            minContextShare: this._colFocusStrategy?.minContextShare ?? 0.05
+        });
+
         const startAngle = -this.arcAngle / 2;
-        const colStep = colCount > 0 ? this.arcAngle / colCount : 0;
-        const scaling = new BABYLON.Vector3(1, 1, 1);
+        const colAngles = [];
+        let angleCursor = startAngle;
+        for (let c = 0; c < colCount; c++) {
+            const span = colWeightInfo.spans[c] ?? 0;
+            const centerAngle = angleCursor + span / 2;
+            colAngles.push(centerAngle);
+            angleCursor += span;
+        }
+
+        const rowCenters = [];
+        let heightCursor = this.height;
+        for (let r = 0; r < rowCount; r++) {
+            const span = rowWeightInfo.spans[r] ?? 0;
+            const center = heightCursor - span / 2;
+            rowCenters.push(this.groundOffset + center);
+            heightCursor -= span;
+        }
 
         let matrixOffset = 0;
         let dataIndex = 0;
@@ -252,7 +295,7 @@ class LCVDSLayout {
         for (let r = 0; r < rowCount; r++) {
             const globalRow = this.scrollRowOffset + r;
             const rowData = this.csvData[globalRow] ?? {};
-            const y = this.groundOffset + (rowCount - 1 - r) * this.cellHeight + this.cellHeight / 2;
+            const y = rowCenters[r] ?? (this.groundOffset + (rowCount - 1 - r) * this.cellHeight + this.cellHeight / 2);
 
             for (let c = 0; c < colCount; c++) {
                 const globalCol = this.scrollColOffset + c;
@@ -260,9 +303,15 @@ class LCVDSLayout {
                 const originalValue = rowData[key];
                 const normalizedValue = this._normalizeValue(key, originalValue);
 
-                const angle = startAngle + (c + 0.5) * colStep;
+                const angle = colAngles[c] ?? startAngle;
                 const x = this.radius * Math.sin(angle);
                 const z = this.radius * Math.cos(angle) - this.radius;
+
+                const scaling = new BABYLON.Vector3(
+                    colWeightInfo.scaleFactors[c] ?? 1,
+                    rowWeightInfo.scaleFactors[r] ?? 1,
+                    1
+                );
 
                 const rotation = BABYLON.Quaternion.RotationYawPitchRoll(angle, 0, 0);
                 const translation = new BABYLON.Vector3(x, y, z);
@@ -289,11 +338,73 @@ class LCVDSLayout {
             rawData,
             cellWidth: this.cellWidth,
             cellHeight: this.cellHeight,
+            rowWeights: rowWeightInfo.normalized,
+            colWeights: colWeightInfo.normalized,
+            rowScaleFactors: rowWeightInfo.scaleFactors,
+            colScaleFactors: colWeightInfo.scaleFactors,
             arcAngle: this.arcAngle,
             arcLength: this.arcLength
         };
 
         this._notifyObservers();
+    }
+
+    _buildAxisWeights({ indices, focusStrategy, totalSpan, baseSpan, minContextShare = 0.05 }) {
+        const count = indices.length;
+        if (count === 0 || !Number.isFinite(totalSpan) || totalSpan <= 0) {
+            return {
+                normalized: new Array(count).fill(0),
+                spans: new Array(count).fill(0),
+                scaleFactors: new Array(count).fill(1)
+            };
+        }
+
+        if (!focusStrategy) {
+            const normalizedWeight = 1 / count;
+            const normalized = new Array(count).fill(normalizedWeight);
+            const spans = normalized.map(weight => weight * totalSpan);
+            const scaleFactors = spans.map(span => {
+                if (!Number.isFinite(baseSpan) || baseSpan === 0) return 1;
+                return span / baseSpan;
+            });
+            return { normalized, spans, scaleFactors };
+        }
+
+        const focusStart = focusStrategy.start ?? focusStrategy.focusStart;
+        const focusEnd = focusStrategy.end ?? focusStrategy.focusEnd;
+        const focusWeight = this._sanitizeWeight(focusStrategy.focusShare, 0.65);
+        const contextWeight = this._sanitizeWeight(
+            typeof focusStrategy.contextShare === "number" ? focusStrategy.contextShare : minContextShare,
+            minContextShare
+        );
+
+        const focusFlags = indices.map(idx => focusStart != null && focusEnd != null ? (idx >= focusStart && idx <= focusEnd) : false);
+        const rawWeights = focusFlags.map(flag => (flag ? focusWeight : contextWeight));
+        const totalWeight = rawWeights.reduce((sum, weight) => sum + weight, 0);
+
+        const normalized = totalWeight > 0
+            ? rawWeights.map(weight => weight / totalWeight)
+            : new Array(count).fill(1 / count);
+
+        const spans = normalized.map(weight => weight * totalSpan);
+        const scaleFactors = spans.map(span => {
+            if (!Number.isFinite(baseSpan) || baseSpan === 0) return 1;
+            return span / baseSpan;
+        });
+
+        return {
+            normalized,
+            spans,
+            scaleFactors
+        };
+    }
+
+    _sanitizeWeight(value, fallback = 0.5) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return Math.max(0.01, fallback);
+        }
+        return Math.max(0.01, numeric);
     }
 
     _notifyObservers() {
