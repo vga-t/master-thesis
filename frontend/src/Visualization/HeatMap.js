@@ -39,17 +39,50 @@ export class HeatMapVisualization {
         );
         this.basePlane.material = new BABYLON.StandardMaterial("planeMaterial", scene);
 
-        this._removeObserver = this.layout.addObserver(snapshot => this.render(snapshot));
+        this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
+            this._handleLayoutUpdate(snapshot, changeType)
+        );
     }
 
-    render(snapshot = this.layout.getVisibleSnapshot()) {
+    _handleLayoutUpdate(snapshot, changeType = "geometry_and_data") {
         if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
-            this.basePlane.thinInstanceSetBuffer("matrix", new Float32Array(0), 16);
-            this.basePlane.thinInstanceSetBuffer("color", new Float32Array(0), 4);
+            this._clearInstances();
             return;
         }
 
-        const { positionMatrix, normalizedData, columnKeys, columnIndices, colCount } = snapshot;
+        if (changeType === "data_only") {
+            this.renderData(snapshot);
+            return;
+        }
+
+        this.renderGeometry(snapshot);
+        this.renderData(snapshot);
+    }
+
+    render(snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot) {
+            this._clearInstances();
+            return;
+        }
+        this.renderGeometry(snapshot);
+        this.renderData(snapshot);
+    }
+
+    renderGeometry(snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this._clearInstances();
+            return;
+        }
+        this.basePlane.thinInstanceSetBuffer("matrix", snapshot.positionMatrix, 16);
+    }
+
+    renderData(snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this._clearInstances();
+            return;
+        }
+
+        const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
         const colorsArr = new Float32Array(normalizedData.length * 4);
         const neutralColor = [0.5, 0.5, 0.5];
 
@@ -97,8 +130,12 @@ export class HeatMapVisualization {
             colorsArr[offset + 3] = 1;
         }
 
-        this.basePlane.thinInstanceSetBuffer("matrix", positionMatrix, 16);
         this.basePlane.thinInstanceSetBuffer("color", colorsArr, 4);
+    }
+
+    _clearInstances() {
+        this.basePlane.thinInstanceSetBuffer("matrix", new Float32Array(0), 16);
+        this.basePlane.thinInstanceSetBuffer("color", new Float32Array(0), 4);
     }
 
     dispose() {

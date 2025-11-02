@@ -158,11 +158,24 @@ export class TwoToneVisualization {
 
         this._lastPaletteCount = 6;
         this._lastIntervals = undefined;
-        this._removeObserver = this.layout.addObserver(snapshot => this._handleLayoutUpdate(snapshot));
+        this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
+            this._handleLayoutUpdate(snapshot, changeType)
+        );
     }
 
-    _handleLayoutUpdate(snapshot) {
-        this.render(this._lastPaletteCount, this._lastIntervals, snapshot);
+    _handleLayoutUpdate(snapshot, changeType = "geometry_and_data") {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this._clearInstances();
+            return;
+        }
+
+        if (changeType === "data_only") {
+            this.renderData(this._lastPaletteCount, this._lastIntervals, snapshot);
+            return;
+        }
+
+        this.renderGeometry(snapshot);
+        this.renderData(this._lastPaletteCount, this._lastIntervals, snapshot);
     }
 
     render(paletteCount = 6, intervals = undefined, snapshot = this.layout.getVisibleSnapshot()) {
@@ -170,20 +183,35 @@ export class TwoToneVisualization {
         this._lastIntervals = intervals;
 
         if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
-            this.basePlane.thinInstanceSetBuffer("matrix", new Float32Array(0), 16);
-            this.basePlane.thinInstanceSetBuffer("split", new Float32Array(0), 1);
-            this.basePlane.thinInstanceSetBuffer("splitColor1", new Float32Array(0), 4);
-            this.basePlane.thinInstanceSetBuffer("splitColor2", new Float32Array(0), 4);
+            this._clearInstances();
             return;
         }
 
-        const { positionMatrix, normalizedData, columnKeys, columnIndices, colCount } = snapshot;
+        this.renderGeometry(snapshot);
+        this.renderData(paletteCount, intervals, snapshot);
+    }
+
+    renderGeometry(snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this._clearInstances();
+            return;
+        }
+        this.basePlane.thinInstanceSetBuffer("matrix", snapshot.positionMatrix, 16);
+    }
+
+    renderData(paletteCount = this._lastPaletteCount, intervals = this._lastIntervals, snapshot = this.layout.getVisibleSnapshot()) {
+        if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
+            this._clearInstances();
+            return;
+        }
+
+        const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
 
         const splitArr = new Float32Array(normalizedData.length);
         const color1Arr = new Float32Array(normalizedData.length * 4);
         const color2Arr = new Float32Array(normalizedData.length * 4);
         const neutralColor = [1, 1, 1];
-        const paletteListRaw = this.config.colorList.slice(0, Math.max(1, paletteCount));
+        const paletteListRaw = this.config.colorList.slice(0, Math.max(1, paletteCount ?? this.config.colorList.length));
         const paletteList = paletteListRaw.length ? paletteListRaw : this.config.colorList;
 
         for (let idx = 0; idx < normalizedData.length; idx++) {
@@ -234,10 +262,16 @@ export class TwoToneVisualization {
             color2Arr[offset + 3] = 1;
         }
 
-        this.basePlane.thinInstanceSetBuffer("matrix", positionMatrix, 16);
         this.basePlane.thinInstanceSetBuffer("split", splitArr, 1);
         this.basePlane.thinInstanceSetBuffer("splitColor1", color1Arr, 4);
         this.basePlane.thinInstanceSetBuffer("splitColor2", color2Arr, 4);
+    }
+
+    _clearInstances() {
+        this.basePlane.thinInstanceSetBuffer("matrix", new Float32Array(0), 16);
+        this.basePlane.thinInstanceSetBuffer("split", new Float32Array(0), 1);
+        this.basePlane.thinInstanceSetBuffer("splitColor1", new Float32Array(0), 4);
+        this.basePlane.thinInstanceSetBuffer("splitColor2", new Float32Array(0), 4);
     }
 
     dispose() {

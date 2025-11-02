@@ -39,21 +39,43 @@ class LCVDSLayout {
         this.columnMetadata = this._inferColumnMetadata();
 
         this._observers = new Set();
-        this._visibleSnapshot = null;
+        this._visibleSnapshot = {
+            rowOffset: this.scrollRowOffset,
+            colOffset: this.scrollColOffset,
+            rowCount: 0,
+            colCount: 0,
+            rowIndices: [],
+            columnIndices: [],
+            columnKeys: [],
+            positionMatrix: new Float32Array(0),
+            normalizedData: new Float32Array(0),
+            rawData: [],
+            cellWidth: this.cellWidth,
+            cellHeight: this.cellHeight,
+            rowWeights: [],
+            colWeights: [],
+            rowScaleFactors: [],
+            colScaleFactors: [],
+            arcAngle: this.arcAngle,
+            arcLength: this.arcLength
+        };
         this._rowFocusStrategy = null;
         this._colFocusStrategy = null;
 
-        this._recomputeVisibleData();
+        this._updateGeometry();
+        this._updateData({ changeType: "geometry_and_data" });
     }
 
     setRowFocusStrategy(strategy = null) {
         this._rowFocusStrategy = strategy ? { ...strategy } : null;
-        this._recomputeVisibleData();
+        this._updateGeometry();
+        this._updateData({ changeType: "geometry_and_data" });
     }
 
     setColumnFocusStrategy(strategy = null) {
         this._colFocusStrategy = strategy ? { ...strategy } : null;
-        this._recomputeVisibleData();
+        this._updateGeometry();
+        this._updateData({ changeType: "geometry_and_data" });
     }
 
     addObserver(callback, { immediate = true } = {}) {
@@ -61,7 +83,7 @@ class LCVDSLayout {
         this._observers.add(callback);
         if (immediate) {
             const snapshot = this.getVisibleSnapshot();
-            if (snapshot) callback(snapshot);
+            if (snapshot) callback(snapshot, "geometry_and_data");
         }
         return () => {
             this._observers.delete(callback);
@@ -102,7 +124,7 @@ class LCVDSLayout {
 
         this.scrollRowOffset = clampedRow;
         this.scrollColOffset = clampedCol;
-        this._recomputeVisibleData();
+        this._updateData({ changeType: "data_only" });
         return true;
     }
 
@@ -215,44 +237,27 @@ class LCVDSLayout {
         return Number.isFinite(result) ? result : 0;
     }
 
-    _recomputeVisibleData() {
+    _updateGeometry() {
         if (!this.totalRows || !this.totalCols) {
             this._visibleSnapshot = {
-                rowOffset: this.scrollRowOffset,
-                colOffset: this.scrollColOffset,
+                ...this._visibleSnapshot,
                 rowCount: 0,
                 colCount: 0,
-                rowIndices: [],
-                columnIndices: [],
-                columnKeys: [],
                 positionMatrix: new Float32Array(0),
-                normalizedData: new Float32Array(0),
-                rawData: [],
-                cellWidth: this.cellWidth,
-                cellHeight: this.cellHeight,
-                arcAngle: this.arcAngle,
-                arcLength: this.arcLength
+                rowWeights: [],
+                colWeights: [],
+                rowScaleFactors: [],
+                colScaleFactors: []
             };
-            this._notifyObservers();
             return;
         }
 
         const rowCount = Math.min(this.visibleRows, this.totalRows);
         const colCount = Math.min(this.visibleCols, this.totalCols);
-
         const matrix = new Float32Array(rowCount * colCount * 16);
-        const normalizedData = new Float32Array(rowCount * colCount);
-        const rawData = new Array(rowCount * colCount);
-        const rowIndices = [];
-        const columnIndices = [];
-        const columnKeys = this.columnKeys.slice(this.scrollColOffset, this.scrollColOffset + colCount);
 
-        for (let r = 0; r < rowCount; r++) {
-            rowIndices.push(this.scrollRowOffset + r);
-        }
-        for (let c = 0; c < colCount; c++) {
-            columnIndices.push(this.scrollColOffset + c);
-        }
+        const rowIndices = Array.from({ length: rowCount }, (_, idx) => this.scrollRowOffset + idx);
+        const columnIndices = Array.from({ length: colCount }, (_, idx) => this.scrollColOffset + idx);
 
         const rowWeightInfo = this._buildAxisWeights({
             indices: rowIndices,
@@ -290,19 +295,9 @@ class LCVDSLayout {
         }
 
         let matrixOffset = 0;
-        let dataIndex = 0;
-
         for (let r = 0; r < rowCount; r++) {
-            const globalRow = this.scrollRowOffset + r;
-            const rowData = this.csvData[globalRow] ?? {};
             const y = rowCenters[r] ?? (this.groundOffset + (rowCount - 1 - r) * this.cellHeight + this.cellHeight / 2);
-
             for (let c = 0; c < colCount; c++) {
-                const globalCol = this.scrollColOffset + c;
-                const key = this.columnKeys[globalCol];
-                const originalValue = rowData[key];
-                const normalizedValue = this._normalizeValue(key, originalValue);
-
                 const angle = colAngles[c] ?? startAngle;
                 const x = this.radius * Math.sin(angle);
                 const z = this.radius * Math.cos(angle) - this.radius;
@@ -318,6 +313,64 @@ class LCVDSLayout {
                 const composed = BABYLON.Matrix.Compose(scaling, rotation, translation).asArray();
                 matrix.set(composed, matrixOffset);
                 matrixOffset += 16;
+            }
+        }
+
+        this._visibleSnapshot = {
+            ...this._visibleSnapshot,
+            rowCount,
+            colCount,
+            positionMatrix: matrix,
+            rowWeights: rowWeightInfo.normalized,
+            colWeights: colWeightInfo.normalized,
+            rowScaleFactors: rowWeightInfo.scaleFactors,
+            colScaleFactors: colWeightInfo.scaleFactors
+        };
+    }
+
+    _updateData({ changeType = "data_only" } = {}) {
+        if (!this._visibleSnapshot) return;
+
+        const rowCount = this._visibleSnapshot.rowCount ?? 0;
+        const colCount = this._visibleSnapshot.colCount ?? 0;
+
+        if (!this.totalRows || !this.totalCols || rowCount === 0 || colCount === 0) {
+            this._visibleSnapshot = {
+                ...this._visibleSnapshot,
+                rowOffset: this.scrollRowOffset,
+                colOffset: this.scrollColOffset,
+                rowIndices: [],
+                columnIndices: [],
+                columnKeys: [],
+                normalizedData: new Float32Array(0),
+                rawData: []
+            };
+            this._notifyObservers("geometry_and_data");
+            return;
+        }
+
+        const normalizedData = new Float32Array(rowCount * colCount);
+        const rawData = new Array(rowCount * colCount);
+        const rowIndices = [];
+        const columnIndices = [];
+        const columnKeys = this.columnKeys.slice(this.scrollColOffset, this.scrollColOffset + colCount);
+
+        for (let r = 0; r < rowCount; r++) {
+            rowIndices.push(this.scrollRowOffset + r);
+        }
+        for (let c = 0; c < colCount; c++) {
+            columnIndices.push(this.scrollColOffset + c);
+        }
+
+        let dataIndex = 0;
+        for (let r = 0; r < rowCount; r++) {
+            const globalRow = this.scrollRowOffset + r;
+            const rowData = this.csvData[globalRow] ?? {};
+            for (let c = 0; c < colCount; c++) {
+                const globalCol = this.scrollColOffset + c;
+                const key = this.columnKeys[globalCol];
+                const originalValue = rowData[key];
+                const normalizedValue = this._normalizeValue(key, originalValue);
 
                 normalizedData[dataIndex] = normalizedValue;
                 rawData[dataIndex] = originalValue;
@@ -326,27 +379,17 @@ class LCVDSLayout {
         }
 
         this._visibleSnapshot = {
+            ...this._visibleSnapshot,
             rowOffset: this.scrollRowOffset,
             colOffset: this.scrollColOffset,
-            rowCount,
-            colCount,
             rowIndices,
             columnIndices,
             columnKeys,
-            positionMatrix: matrix,
             normalizedData,
-            rawData,
-            cellWidth: this.cellWidth,
-            cellHeight: this.cellHeight,
-            rowWeights: rowWeightInfo.normalized,
-            colWeights: colWeightInfo.normalized,
-            rowScaleFactors: rowWeightInfo.scaleFactors,
-            colScaleFactors: colWeightInfo.scaleFactors,
-            arcAngle: this.arcAngle,
-            arcLength: this.arcLength
+            rawData
         };
 
-        this._notifyObservers();
+        this._notifyObservers(changeType);
     }
 
     _buildAxisWeights({ indices, focusStrategy, totalSpan, baseSpan, minContextShare = 0.05 }) {
@@ -407,11 +450,11 @@ class LCVDSLayout {
         return Math.max(0.01, numeric);
     }
 
-    _notifyObservers() {
+    _notifyObservers(changeType = "geometry_and_data") {
         if (!this._visibleSnapshot) return;
         this._observers.forEach(callback => {
             try {
-                callback(this._visibleSnapshot);
+                callback(this._visibleSnapshot, changeType);
             } catch (error) {
                 console.error("LCVDSLayout observer error", error);
             }

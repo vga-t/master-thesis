@@ -19,7 +19,7 @@ const layout = new LCVDSLayout(csvData, {
     height: 5,
     groundOffset: 0.1,
     viewportRows: Math.min(csvData.length || 1, 100),
-    viewportCols: Math.min(columnCount || 1, 28)
+    viewportCols: Math.min(columnCount || 1, 20)
 });
 console.log("Column metadata:", layout.columnMetadata);
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);

@@ -1,13 +1,11 @@
 import * as BABYLON from "babylonjs";
 
-// Each share below expresses the relative weight for a *single* focused index.
-// Example: rowFocusShare=0.7 means every focused row is allotted weight 0.7,
-// while each context row receives minRowContextShare (0.05) before normalization.
 const DEFAULT_CONFIG = {
     rowFocusShare: 0.2,
     columnFocusShare: 0.2,
     minRowContextShare: 0.05,
-    minColumnContextShare: 0.05
+    minColumnContextShare: 0.05,
+    focusUpdateThrottleMs: 100
 };
 
 export default class FocusPlusContext {
@@ -25,6 +23,9 @@ export default class FocusPlusContext {
         this._strokeObserver = null;
         this._panObserver = null;
         this._panState = null;
+        this._focusApplyTimer = null;
+        this._focusApplyPending = false;
+        this._focusUpdateThrottle = Math.max(0, this.config.focusUpdateThrottleMs ?? 0);
 
         this._layoutObserver = this.layout?.addObserver(snapshot => {
             this._latestSnapshot = snapshot;
@@ -36,6 +37,7 @@ export default class FocusPlusContext {
         this._layoutObserver = null;
         this._stopStrokeTracking();
         this._stopPanTracking();
+        this._cancelScheduledFocusApply();
     }
 
     handleTriggerPress(controller) {
@@ -81,10 +83,12 @@ export default class FocusPlusContext {
     handlePanEnd() {
         this._panState = null;
         this._stopPanTracking();
+        this._flushPendingFocusApply();
     }
 
     clearFocus() {
         this.focusBlock = null;
+        this._cancelScheduledFocusApply();
         this.layout?.setRowFocusStrategy(null);
         this.layout?.setColumnFocusStrategy(null);
     }
@@ -184,7 +188,7 @@ export default class FocusPlusContext {
         }
 
         if (changed) {
-            this._applyFocusBlock();
+            this._scheduleFocusApply();
         }
     }
 
@@ -195,22 +199,24 @@ export default class FocusPlusContext {
         const colSpan = stroke.maxCol - stroke.minCol + 1;
         if (!Number.isFinite(rowSpan) || !Number.isFinite(colSpan)) return;
 
-        if (rowSpan >= colSpan) {
-            const range = this._rangeFromSnapshot(snapshot.rowIndices, stroke.minRow, stroke.maxRow);
-            if (!range) return;
-            this.focusBlock = {
-                row: range,
-                col: null
-            };
-        } else {
+        if (colSpan >= 2) {
             const range = this._rangeFromSnapshot(snapshot.columnIndices, stroke.minCol, stroke.maxCol);
             if (!range) return;
             this.focusBlock = {
                 row: null,
                 col: range
             };
+        } else {
+            const range = this._rangeFromSnapshot(snapshot.rowIndices, stroke.minRow, stroke.maxRow);
+            if (!range) return;
+            this.focusBlock = {
+                row: range,
+                col: null
+            };
+
         }
 
+        this._cancelScheduledFocusApply();
         this._applyFocusBlock();
     }
 
@@ -244,6 +250,41 @@ export default class FocusPlusContext {
         }
 
         this._ensureBlockVisible();
+    }
+
+    _scheduleFocusApply() {
+        if (this._focusUpdateThrottle <= 0) {
+            this._applyFocusBlock();
+            return;
+        }
+
+        this._focusApplyPending = true;
+        if (this._focusApplyTimer) {
+            return;
+        }
+
+        this._focusApplyTimer = setTimeout(() => {
+            this._focusApplyTimer = null;
+            this._focusApplyPending = false;
+            this._applyFocusBlock();
+        }, this._focusUpdateThrottle);
+    }
+
+    _flushPendingFocusApply() {
+        if (!this._focusApplyPending) {
+            return;
+        }
+        this._cancelScheduledFocusApply();
+        this._focusApplyPending = false;
+        this._applyFocusBlock();
+    }
+
+    _cancelScheduledFocusApply() {
+        if (this._focusApplyTimer) {
+            clearTimeout(this._focusApplyTimer);
+            this._focusApplyTimer = null;
+        }
+        this._focusApplyPending = false;
     }
 
     _resolveRowShare() {
