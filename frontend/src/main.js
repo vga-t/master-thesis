@@ -7,14 +7,17 @@ import AudioManager from "./audioManager.js";
 import SceneManager from "./sceneManager.js";
 import loadCSV from "./dataLoader.js";
 import LCVDSLayout from "./LCVDSLayout.js";
+
 const radius = 6;
+const arcAngle = 180;
 const BACKEND_URL = "http://localhost:8000";
 const csvData = await loadCSV(BACKEND_URL + "/csv");
-const sceneManager = new SceneManager("renderCanvas");
+// const canvas = document.getElementById("renderCanvas");
+const sceneManager = new SceneManager("renderCanvas", radius);
 const scene = sceneManager.scene;
 const columnCount = csvData.length ? Object.keys(csvData[0]).length : 0;
 const layout = new LCVDSLayout(csvData, {
-    arcAngle: 3 * Math.PI / 2,
+    arcAngle: arcAngle * Math.PI / 180,
     radius: radius,
     height: 5,
     groundOffset: 0.1,
