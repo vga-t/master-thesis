@@ -2,6 +2,7 @@ import { heatMapConfig, HeatMapVisualization } from "./Visualization/HeatMap.js"
 import { twoToneConfig, TwoToneVisualization } from "./Visualization/TwoTone.js";
 import { InteractionManager } from "./Interaction/InteractionManager.js";
 import AudioManager from "./audioManager.js";
+import ColumnHeaders from "./Visualization/ColumnHeader.js";
 
 
 import SceneManager from "./sceneManager.js";
@@ -21,19 +22,20 @@ const layout = new LCVDSLayout(csvData, {
     radius: radius,
     height: 5,
     groundOffset: 0.1,
-    viewportRows: Math.min(csvData.length || 1, 100),
+    viewportRows: Math.min(csvData.length || 1, 300),
     viewportCols: Math.min(columnCount || 1, 20)
 });
 console.log("Column metadata:", layout.columnMetadata);
 const heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);
 const twoTone = new TwoToneVisualization(layout, { twoToneConfig }, scene);
+const columnHeaders = new ColumnHeaders(layout, scene);
 const xrHelper = await sceneManager.setupXR(radius).catch("Cannot set XR up");
 sceneManager.setupMultiRayCasting(xrHelper);
 
 heatMap.render();
 heatMap.basePlane.isVisible = false;
 let currentVis = twoTone;
-currentVis.render(6);
+currentVis.render(6, 6);
 const interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene);
 const audioManager = new AudioManager();
 

@@ -1,5 +1,4 @@
 Date;Temp;MinTemp;AvgTemp;MaxTemp;RelHumidity;AvgWind;MaxWind;SunshineDuration;CloudCover;Precipitation;AirPressure
-Date;Real;Real;Real;Real;Real;Real;Real;Real;Real;Real;Real
 2009-10-02;5.2;6.3;10.0;11.6;73.9;5.0;17.2;4.2;6.0;4.2;1009.4
 2009-10-01;7.0;8.8;11.8;13.0;76.7;6.0;22.6;3.1;7.0;3.4;1004.6
 2009-09-30;9.3;9.5;11.9;14.2;67.2;4.0;12.2;2.2;5.7;3.6;1012.9

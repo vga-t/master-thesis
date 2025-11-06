@@ -27,9 +27,9 @@ def read_root():
 
 @app.get("/csv")
 def get_csv():
-    csv_path = os.path.join(os.path.dirname(__file__),"csv/mdlon.csv")  
+    csv_path = os.path.join(os.path.dirname(__file__),"csv/RostockWeather.csv")  
     if os.path.exists(csv_path):
-        return FileResponse(csv_path, media_type='text/csv', filename='mdlon.csv')
+        return FileResponse(csv_path, media_type='text/csv', filename='RostockWeather.csv')
     else:
         return {"error": "CSV file not found"}
 @app.post("/process")
