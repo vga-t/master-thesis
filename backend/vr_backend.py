@@ -1,16 +1,13 @@
 from fastapi import FastAPI
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from routers import data, processing
 
 load_dotenv()
-class Command(BaseModel): 
-    text: str
+
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
-GEMINI_API_KEY = os.getenv("Gemini_api_key")
-print(GEMINI_API_KEY)
+
 app = FastAPI()
 
 app.add_middleware(
@@ -21,20 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(data.router)
+app.include_router(processing.router)
+
 @app.get("/")
 def read_root():
     return "Hello"
-
-@app.get("/csv")
-def get_csv():
-    csv_path = os.path.join(os.path.dirname(__file__),"csv/RostockWeather.csv")  
-    if os.path.exists(csv_path):
-        return FileResponse(csv_path, media_type='text/csv', filename='RostockWeather.csv')
-    else:
-        return {"error": "CSV file not found"}
-@app.post("/process")
-def process_command(command: Command):
-    user_text = command.text
-    print(f"Received command: {user_text}")
-    response_data={"message":user_text+"-----from backend"}
-    return response_data

@@ -1,60 +1,43 @@
 export class AudioManager {
     constructor() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            console.error("Speech recognition not supported in this browser.");
-            return;
-        }
-
-        this.recognition = new SpeechRecognition();
+        this.mediaRecorder = null;
+        this.audioChunks = [];
         this.isRecording = false;
-
-        this.recognition.continuous = true;
-        this.recognition.lang = "en-US";
-        this.recognition.interimResults = false;
-        this.recognition.maxAlternatives = 1;
-
-        this.recognition.onresult = (event) => {
-            let fullTranscript = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                if (event.results[i].isFinal) {
-                    fullTranscript += event.results[i][0].transcript.trim() + " ";
-                }
-            }
-
-            if (fullTranscript && this.onTranscript) {
-                this.onTranscript(fullTranscript.trim());
-            }
-        };
-
-        this.recognition.onend = () => {
-            if (this.isRecording) {
-                this.recognition.start();
-            }
-        };
-
-        this.recognition.onerror = (event) => {
-            console.error("Speech recognition error:", event.error);
-        };
-        this.onTranscript = null;
+        this.onAudioData = null;
     }
 
-    start() {
-        if (!this.recognition || this.isRecording) return;
+    async start() {
+        if (this.isRecording) return;
+
         try {
-            this.recognition.start();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.audioChunks = [];
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                this.audioChunks.push(event.data);
+            };
+
+            this.mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                if (this.onAudioData) {
+                    this.onAudioData(audioBlob);
+                }
+            };
+
+            this.mediaRecorder.start();
             this.isRecording = true;
-            console.log("Speech recognition started.");
+            console.log("Audio recording started.");
         } catch (error) {
-            console.error("Error starting speech recognition:", error);
+            console.error("Error starting audio recording:", error);
         }
     }
 
     stop() {
-        if (!this.recognition || !this.isRecording) return;
-        this.recognition.stop();
+        if (!this.mediaRecorder || !this.isRecording) return;
+        this.mediaRecorder.stop();
         this.isRecording = false;
-        console.log("Speech recognition stopped.");
+        console.log("Audio recording stopped.");
     }
 
     toggleRecording() {
@@ -66,14 +49,10 @@ export class AudioManager {
     }
 
     generateSpeech(message) {
-
         const utterance = new SpeechSynthesisUtterance(message);
         utterance.rate = 0.8;
         speechSynthesis.speak(utterance);
-
     }
-
-
 }
 
 export default AudioManager;

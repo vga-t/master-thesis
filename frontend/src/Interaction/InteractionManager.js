@@ -442,5 +442,20 @@ export class InteractionManager {
         }
     }
 
-
+    dispose() {
+        if (this._scrollObserver) {
+            this.scene.onBeforeRenderObservable.remove(this._scrollObserver);
+            this._scrollObserver = null;
+        }
+        if (this._minimapUpdateObserver) {
+            this.scene.onBeforeRenderObservable.remove(this._minimapUpdateObserver);
+            this._minimapUpdateObserver = null;
+        }
+        if (this._leftThumbstickComponent && this._leftThumbstickObserver) {
+            this._leftThumbstickComponent.onAxisValueChangedObservable.remove(this._leftThumbstickObserver);
+        }
+        if (this.minimap) {
+            this.minimap.dispose();
+        }
+    }
 }

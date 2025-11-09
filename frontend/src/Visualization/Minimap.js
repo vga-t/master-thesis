@@ -312,6 +312,10 @@ class MinimapVisualization {
             col: Number.isFinite(col) && col > 0 ? col : 1
         };
     }
+
+    dispose() {
+        this.root.dispose();
+    }
 }
 
 export default MinimapVisualization;
