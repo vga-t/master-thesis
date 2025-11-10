@@ -15,6 +15,7 @@ export default class FocusPlusContext {
         this.twoTone = twoTone;
         this.heatMap = heatMap;
         this.config = { ...DEFAULT_CONFIG, ...config };
+        this._defaultCameraPose = this._captureCameraPose();
 
         this.focusBlock = null;
         this._latestSnapshot = this.layout?.getVisibleSnapshot() ?? null;
@@ -91,6 +92,11 @@ export default class FocusPlusContext {
         this._cancelScheduledFocusApply();
         this.layout?.setRowFocusStrategy(null);
         this.layout?.setColumnFocusStrategy(null);
+    }
+
+    resetToDefault() {
+        this.clearFocus();
+        this._restoreCameraPose();
     }
 
     _startStrokeTracking(controller) {
@@ -285,6 +291,36 @@ export default class FocusPlusContext {
             this._focusApplyTimer = null;
         }
         this._focusApplyPending = false;
+    }
+
+    _captureCameraPose() {
+        const camera = this.scene?.activeCamera;
+        if (!camera) return null;
+        const position = camera.position?.clone ? camera.position.clone() : null;
+        let target = null;
+        if (typeof camera.getTarget === "function") {
+            target = camera.getTarget()?.clone?.() ?? camera.getTarget();
+        } else if (camera.target?.clone) {
+            target = camera.target.clone();
+        }
+        return { position, target };
+    }
+
+    _restoreCameraPose() {
+        if (!this._defaultCameraPose) return;
+        const camera = this.scene?.activeCamera;
+        if (!camera) return;
+        const { position, target } = this._defaultCameraPose;
+        if (position && camera.position?.copyFrom) {
+            camera.position.copyFrom(position);
+        }
+        if (target) {
+            if (typeof camera.setTarget === "function") {
+                camera.setTarget(target.clone ? target.clone() : target);
+            } else if (camera.target?.copyFrom) {
+                camera.target.copyFrom(target);
+            }
+        }
     }
 
     _resolveRowShare() {

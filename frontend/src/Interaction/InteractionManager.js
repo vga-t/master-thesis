@@ -1,6 +1,7 @@
 import * as BABYLON from "babylonjs";
 import MinimapVisualization from "../Visualization/Minimap.js";
 import FocusPlusContext from "./Focus+Context.js";
+import RubberBandSelection from "./RubberBandSelection.js";
 
 export class InteractionManager {
     constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
@@ -68,6 +69,15 @@ export class InteractionManager {
             twoTone,
             heatMap
         });
+        this.rubberBandSelection = new RubberBandSelection({
+            scene,
+            layout,
+            camera: () => this.scene?.activeCamera,
+            getActivePlane: () => this._resolveActiveSelectionPlane()
+        });
+        this._lastTriggerReleaseTime = 0;
+        this._rightTriggerClickTimer = null;
+        this._activeSqueezeMode = null;
 
         this._setupVRControllers();
 
@@ -99,9 +109,10 @@ export class InteractionManager {
                         triggerComponent.onButtonStateChangedObservable.add(component => {
                             if (!component.changes.pressed) return;
                             if (component.pressed) {
-                                this.focusContext?.handleTriggerPress(rightController);
+                                this.rubberBandSelection?.beginDrag(rightController);
                             } else {
-                                this.focusContext?.handleTriggerRelease();
+                                this.rubberBandSelection?.endDrag();
+                                this._registerRightTriggerRelease();
                             }
                         });
                     }
@@ -119,9 +130,20 @@ export class InteractionManager {
                         squeezeComponent.onButtonStateChangedObservable.add(component => {
                             if (!component.changes.pressed) return;
                             if (component.pressed) {
-                                this._startMinimapInteraction(rightController);
+                                const minimapHandled = this._startMinimapInteraction(rightController);
+                                if (minimapHandled) {
+                                    this._activeSqueezeMode = "minimap";
+                                } else {
+                                    this._activeSqueezeMode = "focus";
+                                    this.focusContext?.handleTriggerPress(rightController);
+                                }
                             } else {
-                                this._endMinimapInteraction();
+                                if (this._activeSqueezeMode === "minimap") {
+                                    this._endMinimapInteraction();
+                                } else if (this._activeSqueezeMode === "focus") {
+                                    this.focusContext?.handleTriggerRelease();
+                                }
+                                this._activeSqueezeMode = null;
                             }
                         });
                     }
@@ -194,6 +216,25 @@ export class InteractionManager {
                 }
             });
         }
+
+        const xButton = motionController.getComponent('x-button');
+        const yButton = motionController.getComponent('y-button');
+        if (xButton) {
+            xButton.onButtonStateChangedObservable.add(component => {
+                if (!component.changes.pressed) return;
+                if (component.pressed) {
+                    this.rubberBandSelection?.setVisualizationMode("line");
+                }
+            });
+        }
+        if (yButton) {
+            yButton.onButtonStateChangedObservable.add(component => {
+                if (!component.changes.pressed) return;
+                if (component.pressed) {
+                    this.rubberBandSelection?.setVisualizationMode("parallel");
+                }
+            });
+        }
     }
     _applyDeadzone(value, deadZone = 0.1) {
         return Math.abs(value) < deadZone ? 0 : value;
@@ -249,11 +290,41 @@ export class InteractionManager {
                 if (controller?.motionController?.handness === "left") {
                     this._detachLeftThumbstick();
                 } else if (controller?.motionController?.handness === "right") {
-                    this.focusContext?.handleTriggerRelease?.();
+                    if (this._activeSqueezeMode === "focus") {
+                        this.focusContext?.handleTriggerRelease?.();
+                    }
                     this.focusContext?.handlePanEnd?.();
+                    this.rubberBandSelection?.cancelDrag?.();
+                    this._activeSqueezeMode = null;
                 }
             });
         }
+    }
+
+    _registerRightTriggerRelease() {
+        const DOUBLE_CLICK_MS = 350;
+        const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+        if (now - this._lastTriggerReleaseTime <= DOUBLE_CLICK_MS) {
+            if (this._rightTriggerClickTimer) {
+                clearTimeout(this._rightTriggerClickTimer);
+                this._rightTriggerClickTimer = null;
+            }
+            this._lastTriggerReleaseTime = 0;
+            this._handleRightTriggerDoubleClick();
+        } else {
+            this._lastTriggerReleaseTime = now;
+            if (this._rightTriggerClickTimer) {
+                clearTimeout(this._rightTriggerClickTimer);
+            }
+            this._rightTriggerClickTimer = setTimeout(() => {
+                this._rightTriggerClickTimer = null;
+            }, DOUBLE_CLICK_MS);
+        }
+    }
+
+    _handleRightTriggerDoubleClick() {
+        this.rubberBandSelection?.reset();
+        this.focusContext?.resetToDefault?.();
     }
 
     setVisualizationMode(mode) {
@@ -323,12 +394,12 @@ export class InteractionManager {
     }
 
     _startMinimapInteraction(controller) {
-        if (!this.minimap || !this._minimapVisible) return;
+        if (!this.minimap || !this._minimapVisible) return false;
         const ray = this._buildForwardRay(controller);
-        if (!ray) return;
+        if (!ray) return false;
 
         const pickInfo = this.scene.pickWithRay(ray, mesh => mesh?.metadata?.minimap === true, false);
-        if (!pickInfo || !pickInfo.hit) return;
+        if (!pickInfo || !pickInfo.hit) return false;
 
         const target = pickInfo.pickedMesh;
         if (!target?.metadata) return;
@@ -352,6 +423,7 @@ export class InteractionManager {
             this.minimap.previewViewportFromNormalized(normalized.row, normalized.col);
             this._applyViewportDrag(normalized);
         }
+        return !!this._minimapInteraction;
     }
 
     _endMinimapInteraction() {
@@ -457,5 +529,16 @@ export class InteractionManager {
         if (this.minimap) {
             this.minimap.dispose();
         }
+        if (this._rightTriggerClickTimer) {
+            clearTimeout(this._rightTriggerClickTimer);
+            this._rightTriggerClickTimer = null;
+        }
+        this.rubberBandSelection?.dispose();
+    }
+
+    _resolveActiveSelectionPlane() {
+        if (this.twoTone?.basePlane?.isVisible) return this.twoTone.basePlane;
+        if (this.heatMap?.basePlane?.isVisible) return this.heatMap.basePlane;
+        return this.twoTone?.basePlane ?? this.heatMap?.basePlane ?? null;
     }
 }
