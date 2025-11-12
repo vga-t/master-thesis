@@ -442,4 +442,28 @@ export default class FocusPlusContext {
         return candidate;
     }
 
+    adjustFocusDistortion(rowDelta, colDelta) {
+        if (!this.focusBlock) return;
+
+        let changed = false;
+        if (rowDelta !== 0 && this.focusBlock.row) {
+            const newShare = Math.max(0.1, Math.min(0.9, this.config.rowFocusShare + rowDelta));
+            if (Math.abs(newShare - this.config.rowFocusShare) > 1e-4) {
+                this.config.rowFocusShare = newShare;
+                changed = true;
+            }
+        }
+
+        if (colDelta !== 0 && this.focusBlock.col) {
+            const newShare = Math.max(0.1, Math.min(0.9, this.config.columnFocusShare + colDelta));
+            if (Math.abs(newShare - this.config.columnFocusShare) > 1e-4) {
+                this.config.columnFocusShare = newShare;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this._scheduleFocusApply();
+        }
+    }
 }

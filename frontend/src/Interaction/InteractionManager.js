@@ -23,7 +23,7 @@ export class InteractionManager {
 
         this._rowScrollSpeed = Math.max(6, Math.round(this.layout.visibleRows / 1.5));
         this._colScrollSpeed = Math.max(3, Math.round(Math.max(1, this.layout.visibleCols) / 2));
-        this._leftScrollVelocity = { row: 0, col: 0 };
+        this._leftStickInput = { x: 0, y: 0 };
         this._scrollAccumulator = { row: 0, col: 0 };
         this._scrollObserver = null;
         this._leftThumbstickComponent = null;
@@ -204,8 +204,8 @@ export class InteractionManager {
             this._leftThumbstickObserver = thumbstick.onAxisValueChangedObservable.add(axes => {
                 const x = this._applyDeadzone(axes.x);
                 const y = this._applyDeadzone(axes.y);
-                this._leftScrollVelocity.col = x;
-                this._leftScrollVelocity.row = y;
+                this._leftStickInput.x = x;
+                this._leftStickInput.y = y;
             });
         }
 
@@ -246,8 +246,8 @@ export class InteractionManager {
         }
         this._leftThumbstickComponent = null;
         this._leftThumbstickObserver = null;
-        this._leftScrollVelocity.row = 0;
-        this._leftScrollVelocity.col = 0;
+        this._leftStickInput.x = 0;
+        this._leftStickInput.y = 0;
     }
 
     _ensureScrollObserver() {
@@ -258,29 +258,42 @@ export class InteractionManager {
             const dt = engine.getDeltaTime() / 1000;
             if (!Number.isFinite(dt) || dt <= 0) return;
 
-            const rowDelta = this._leftScrollVelocity.row * this._rowScrollSpeed * dt;
-            const colDelta = this._leftScrollVelocity.col * this._colScrollSpeed * dt;
+            if (this.focusContext && this.focusContext.focusBlock) {
+                // Distortion Mode
+                const distortionSpeed = 0.5;
+                // Stick Y (up/down) controls Row Height (rowFocusShare)
+                // Stick X (left/right) controls Column Width (columnFocusShare)
+                // Invert Y because stick up is usually negative, and we want up to increase height (or maybe down to increase? let's try -y for up=increase)
+                const rowDelta = -this._leftStickInput.y * distortionSpeed * dt;
+                const colDelta = this._leftStickInput.x * distortionSpeed * dt;
 
-            this._scrollAccumulator.row += rowDelta;
-            this._scrollAccumulator.col += colDelta;
+                this.focusContext.adjustFocusDistortion(rowDelta, colDelta);
+            } else {
+                // Scroll Mode
+                const rowDelta = this._leftStickInput.y * this._rowScrollSpeed * dt;
+                const colDelta = this._leftStickInput.x * this._colScrollSpeed * dt;
 
-            const rowSteps = Math.trunc(this._scrollAccumulator.row);
-            if (rowSteps !== 0) {
-                const scrolled = this.layout.scrollBy(rowSteps, 0);
-                if (scrolled) {
-                    this._scrollAccumulator.row -= rowSteps;
-                } else {
-                    this._scrollAccumulator.row = 0;
+                this._scrollAccumulator.row += rowDelta;
+                this._scrollAccumulator.col += colDelta;
+
+                const rowSteps = Math.trunc(this._scrollAccumulator.row);
+                if (rowSteps !== 0) {
+                    const scrolled = this.layout.scrollBy(rowSteps, 0);
+                    if (scrolled) {
+                        this._scrollAccumulator.row -= rowSteps;
+                    } else {
+                        this._scrollAccumulator.row = 0;
+                    }
                 }
-            }
 
-            const colSteps = Math.trunc(this._scrollAccumulator.col);
-            if (colSteps !== 0) {
-                const scrolled = this.layout.scrollBy(0, colSteps);
-                if (scrolled) {
-                    this._scrollAccumulator.col -= colSteps;
-                } else {
-                    this._scrollAccumulator.col = 0;
+                const colSteps = Math.trunc(this._scrollAccumulator.col);
+                if (colSteps !== 0) {
+                    const scrolled = this.layout.scrollBy(0, colSteps);
+                    if (scrolled) {
+                        this._scrollAccumulator.col -= colSteps;
+                    } else {
+                        this._scrollAccumulator.col = 0;
+                    }
                 }
             }
         });
