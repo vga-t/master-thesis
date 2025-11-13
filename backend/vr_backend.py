@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routers import data, processing
+from routers import data, processing, visualization
 
 load_dotenv()
 
@@ -20,6 +20,7 @@ app.add_middleware(
 
 app.include_router(data.router)
 app.include_router(processing.router)
+app.include_router(visualization.router)
 
 @app.get("/")
 def read_root():

@@ -23,7 +23,7 @@ def generate_response(audio_path, df_columns):
     You are the intelligent backend for a VR data visualization system.
     I have a pandas DataFrame named `df` (current state) with the following columns: {df_columns}.
     I also have a DataFrame named `original_df` which contains the initial, unmodified dataset.
-    The frontend automatically renders whatever data is in `df`.
+    The frontend automatically renders whatever data is in `df` using specialized VR visualizations (heatmap, two-tone, parallel coordinates, line charts).
     
     The user has provided a voice command to transform this data.
     
@@ -35,8 +35,9 @@ def generate_response(audio_path, df_columns):
     - The code MUST update the `df` variable (e.g., `df = df[...]`, `df['new_col'] = ...`).
     - If the user asks to "reset", "show all", "clear filters", or "start over", you MUST set `df = original_df.copy()`.
     - If the user asks for a filter that implies starting from the full dataset (e.g., "Show me X" when the current view is already filtered to Y), consider using `original_df` as the source.
-    - Do NOT generate any visualization code (no matplotlib, no seaborn, no plots). The frontend handles visualization.
+    - Do NOT generate any visualization code (no matplotlib, no seaborn, no plots, no charts). The VR frontend handles ALL visualizations including embedded charts like parallel coordinates and line charts.
     - Do NOT print anything.
+    - Focus only on data transformations: filtering, sorting, aggregation, column creation, etc.
     - The "explanation" is VERY IMPORTANT. It will be spoken to the user. It must clearly state how the data was changed so the user understands the new state of the visualization.
     
     Return a JSON object with exactly two keys:

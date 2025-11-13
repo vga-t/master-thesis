@@ -35,12 +35,27 @@ export default class RubberBandSelection {
         this._dragState = null;
         this._activeSelection = null;
         this._renderObserver = null;
-        this._preferredVizMode = "auto"; // auto | line | parallel
+        this._preferredVizMode = "parallel"; // parallel | line
         this._lastPreviewHash = null;
     }
 
     beginDrag(controller) {
         if (!controller || this._dragState) return false;
+
+        // First check if clicking on the visualization menu
+        if (this._embeddedViz?.isMenuVisible()) {
+            const ray = this._buildForwardRay(controller);
+            if (ray) {
+                const menuMesh = this._embeddedViz.getMenuMesh();
+                if (menuMesh) {
+                    const pickInfo = this.scene.pickWithRay(ray, mesh => mesh === menuMesh, false);
+                    if (this._embeddedViz.handleMenuClick(pickInfo)) {
+                        return true; // Menu handled the click
+                    }
+                }
+            }
+        }
+
         const pick = this._pickActivePlane(controller);
         if (!pick || pick.thinInstanceIndex == null) return false;
         const indices = this._indicesFromThinInstance(pick.thinInstanceIndex);
@@ -109,15 +124,22 @@ export default class RubberBandSelection {
     }
 
     setVisualizationMode(mode) {
-        if (!mode || !["line", "parallel", "auto"].includes(mode)) return;
+        if (!mode || !["line", "parallel"].includes(mode)) return;
         this._preferredVizMode = mode;
-        if (this._activeSelection) {
-            this._showEmbeddedVisualization(this._activeSelection);
+        if (this._activeSelection && this._embeddedViz) {
+            this._embeddedViz.setMode(mode);
         }
     }
 
     getVisualizationMode() {
         return this._preferredVizMode;
+    }
+
+    /**
+     * Get the embedded visualization instance for menu interaction
+     */
+    getEmbeddedVisualization() {
+        return this._embeddedViz;
     }
 
     _ensureRenderObserver() {
@@ -420,7 +442,8 @@ export default class RubberBandSelection {
             rowIndices,
             colIndices,
             geometry,
-            mode: this._preferredVizMode
+            mode: this._preferredVizMode,
+            showMenu: true
         });
     }
 
