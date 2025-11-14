@@ -20,6 +20,17 @@ const HANDLE_SPECS = [
     { name: "bottomRight", signX: 1, signY: -1 }
 ];
 
+const VIEWPORT_HANDLE_SPECS = [
+    { name: "vpTopLeft", signX: -1, signY: 1 },
+    { name: "vpTopRight", signX: 1, signY: 1 },
+    { name: "vpBottomLeft", signX: -1, signY: -1 },
+    { name: "vpBottomRight", signX: 1, signY: -1 }
+];
+
+const VIEWPORT_HANDLE_SIZE = 0.035;
+const MIN_VIEWPORT_WIDTH_RATIO = 0.08;
+const MIN_VIEWPORT_HEIGHT_RATIO = 0.08;
+
 class MinimapVisualization {
     constructor(layout, scene) {
         this.layout = layout;
@@ -68,6 +79,21 @@ class MinimapVisualization {
             mat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.9);
             mat.specularColor = new BABYLON.Color3(0, 0, 0);
             mat.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            mat.disableLighting = true;
+            mesh.material = mat;
+            return mesh;
+        });
+
+        // Viewport resize handles (for inverse zoom)
+        this.viewportHandles = VIEWPORT_HANDLE_SPECS.map(spec => {
+            const mesh = BABYLON.MeshBuilder.CreateSphere(`minimapVPHandle_${spec.name}`, { diameter: VIEWPORT_HANDLE_SIZE }, scene);
+            mesh.parent = this.root;
+            mesh.isPickable = true;
+            mesh.metadata = { minimap: true, kind: "viewportHandle", handle: spec.name, signX: spec.signX, signY: spec.signY };
+            const mat = new BABYLON.StandardMaterial(`minimapVPHandleMat_${spec.name}`, scene);
+            mat.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);
+            mat.specularColor = new BABYLON.Color3(0, 0, 0);
+            mat.emissiveColor = new BABYLON.Color3(0.4, 0.3, 0.1);
             mat.disableLighting = true;
             mesh.material = mat;
             return mesh;
@@ -166,9 +192,98 @@ class MinimapVisualization {
         this.viewportMesh.position.y = centerY;
         this.viewportMesh.position.z = 0.003;
 
+        // Position viewport handles at corners of viewport
+        this._updateViewportHandlePositions(centerX, centerY, viewportWidth, viewportHeight);
+
         this._lastViewportInput = {
             scrollState: { ...scrollState },
             dimensions: { visibleRows, visibleCols, totalRows, totalCols }
+        };
+    }
+
+    _updateViewportHandlePositions(centerX, centerY, viewportWidth, viewportHeight) {
+        if (!this.viewportHandles) return;
+        const halfVpWidth = viewportWidth / 2;
+        const halfVpHeight = viewportHeight / 2;
+
+        this.viewportHandles.forEach(handle => {
+            const { signX, signY } = handle.metadata;
+            handle.position.x = centerX + signX * halfVpWidth;
+            handle.position.y = centerY + signY * halfVpHeight;
+            handle.position.z = 0.005;
+        });
+    }
+
+    resizeViewportFromHandle(handleMeta, localPoint, anchorLocalPoint) {
+        if (!handleMeta || !localPoint || !this._lastViewportInput) return null;
+
+        const { signX, signY } = handleMeta;
+        const { dimensions, scrollState } = this._lastViewportInput;
+        const { totalRows, totalCols } = dimensions;
+
+        // Get current viewport position and size
+        const currentVpWidth = this.viewportMesh.scaling.x;
+        const currentVpHeight = this.viewportMesh.scaling.y;
+        const currentCenterX = this.viewportMesh.position.x;
+        const currentCenterY = this.viewportMesh.position.y;
+
+        // Calculate the anchor point (opposite corner that stays fixed)
+        const anchorX = currentCenterX - signX * (currentVpWidth / 2);
+        const anchorY = currentCenterY - signY * (currentVpHeight / 2);
+
+        // Calculate new viewport size based on drag position
+        const minVpWidth = Math.max(MIN_VIEWPORT_SIZE, MIN_VIEWPORT_WIDTH_RATIO * this._width);
+        const minVpHeight = Math.max(MIN_VIEWPORT_SIZE, MIN_VIEWPORT_HEIGHT_RATIO * this._height);
+
+        // New width/height based on distance from anchor to new point
+        let newVpWidth = Math.abs(localPoint.x - anchorX);
+        let newVpHeight = Math.abs(localPoint.y - anchorY);
+
+        // Clamp to min/max viewport sizes
+        newVpWidth = Math.max(minVpWidth, Math.min(this._width, newVpWidth));
+        newVpHeight = Math.max(minVpHeight, Math.min(this._height, newVpHeight));
+
+        // Calculate new center
+        const newCenterX = anchorX + signX * (newVpWidth / 2);
+        const newCenterY = anchorY + signY * (newVpHeight / 2);
+
+        // Clamp center so viewport stays within minimap bounds
+        const halfWidth = this._width / 2;
+        const halfHeight = this._height / 2;
+        const clampedCenterX = Math.max(-halfWidth + newVpWidth / 2, Math.min(halfWidth - newVpWidth / 2, newCenterX));
+        const clampedCenterY = Math.max(-halfHeight + newVpHeight / 2, Math.min(halfHeight - newVpHeight / 2, newCenterY));
+
+        // Apply visual updates
+        this.viewportMesh.scaling.x = newVpWidth;
+        this.viewportMesh.scaling.y = newVpHeight;
+        this.viewportMesh.position.x = clampedCenterX;
+        this.viewportMesh.position.y = clampedCenterY;
+        this.viewportMesh.position.z = 0.003;
+
+        this._updateViewportHandlePositions(clampedCenterX, clampedCenterY, newVpWidth, newVpHeight);
+
+        // Calculate new visible rows/cols (inverse zoom: smaller viewport = fewer cells = zoom in)
+        const viewportWidthRatio = newVpWidth / this._width;
+        const viewportHeightRatio = newVpHeight / this._height;
+
+        const newVisibleCols = Math.max(1, Math.round(viewportWidthRatio * totalCols));
+        const newVisibleRows = Math.max(1, Math.round(viewportHeightRatio * totalRows));
+
+        // Calculate new scroll offsets based on viewport position
+        const colNorm = (clampedCenterX + halfWidth - newVpWidth / 2) / Math.max(0.001, this._width - newVpWidth);
+        const rowNorm = (halfHeight - clampedCenterY - newVpHeight / 2) / Math.max(0.001, this._height - newVpHeight);
+
+        const maxRowOffset = Math.max(0, totalRows - newVisibleRows);
+        const maxColOffset = Math.max(0, totalCols - newVisibleCols);
+
+        const newRowOffset = Math.round(Math.max(0, Math.min(1, rowNorm)) * maxRowOffset);
+        const newColOffset = Math.round((1 - Math.max(0, Math.min(1, colNorm))) * maxColOffset);
+
+        return {
+            visibleRows: newVisibleRows,
+            visibleCols: newVisibleCols,
+            rowOffset: newRowOffset,
+            colOffset: newColOffset
         };
     }
 

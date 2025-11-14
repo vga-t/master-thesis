@@ -94,13 +94,26 @@ export class TwoToneVisualization {
         this.config = twoToneConfig;
         this.scene = scene;
 
+        this._currentCellWidth = layout.cellWidth;
+        this._currentCellHeight = layout.cellHeight;
+
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneTwoTone",
             { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
 
+        this._initShaders();
+        this._applyShaderMaterial();
 
+        this._lastPaletteCount = 6;
+        this._lastIntervals = undefined;
+        this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
+            this._handleLayoutUpdate(snapshot, changeType)
+        );
+    }
+
+    _initShaders() {
         if (!BABYLON.Effect.ShadersStore["twoToneVertexShader"]) {
             BABYLON.Effect.ShadersStore["twoToneVertexShader"] = `
                 precision highp float;
@@ -145,8 +158,10 @@ export class TwoToneVisualization {
                 }
             `;
         }
+    }
 
-        const shaderMat = new BABYLON.ShaderMaterial("twoToneMat", scene, {
+    _applyShaderMaterial() {
+        const shaderMat = new BABYLON.ShaderMaterial("twoToneMat", this.scene, {
             vertex: "twoTone",
             fragment: "twoTone"
         }, {
@@ -155,18 +170,23 @@ export class TwoToneVisualization {
         });
 
         this.basePlane.material = shaderMat;
-
-        this._lastPaletteCount = 6;
-        this._lastIntervals = undefined;
-        this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
-            this._handleLayoutUpdate(snapshot, changeType)
-        );
     }
 
     _handleLayoutUpdate(snapshot, changeType = "geometry_and_data") {
         if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
             this._clearInstances();
             return;
+        }
+
+        // Check if cell dimensions changed and recreate basePlane to avoid z-fighting
+        if (changeType === "cell_size_changed" || changeType === "geometry_and_data") {
+            const newCellWidth = this.layout.cellWidth;
+            const newCellHeight = this.layout.cellHeight;
+
+            if (Math.abs(newCellWidth - this._currentCellWidth) > 1e-6 ||
+                Math.abs(newCellHeight - this._currentCellHeight) > 1e-6) {
+                this._recreateBasePlane(newCellWidth, newCellHeight);
+            }
         }
 
         if (changeType === "data_only") {
@@ -176,6 +196,40 @@ export class TwoToneVisualization {
 
         this.renderGeometry(snapshot);
         this.renderData(this._lastPaletteCount, this._lastIntervals, snapshot);
+    }
+
+    _recreateBasePlane(newCellWidth, newCellHeight) {
+        // Store current visibility and pickable state
+        const isPickable = this.basePlane.isPickable;
+        const isVisible = this.basePlane.isVisible;
+
+        // Clear instances first to prevent z-fighting
+        this._clearInstances();
+
+        // Dispose old mesh and material
+        if (this.basePlane.material) {
+            this.basePlane.material.dispose();
+        }
+        this.basePlane.dispose();
+
+        // Create new mesh with updated dimensions
+        this.basePlane = BABYLON.MeshBuilder.CreatePlane(
+            "basePlaneTwoTone",
+            { height: newCellHeight, width: newCellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            this.scene
+        );
+
+        // Apply shader material
+        this._applyShaderMaterial();
+
+        // Restore properties
+        this.basePlane.isPickable = isPickable;
+        this.basePlane.isVisible = isVisible;
+        this.basePlane.thinInstanceEnablePicking = true;
+
+        // Update tracked dimensions
+        this._currentCellWidth = newCellWidth;
+        this._currentCellHeight = newCellHeight;
     }
 
     render(paletteCount = 6, intervals = undefined, snapshot = this.layout.getVisibleSnapshot()) {

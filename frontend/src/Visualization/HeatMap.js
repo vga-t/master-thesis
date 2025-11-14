@@ -32,6 +32,9 @@ export class HeatMapVisualization {
         this.colorMapping = heatMapConfig.colorMapping.bind(heatMapConfig);
         this.colorListLength = heatMapConfig.colorListLength;
 
+        this._currentCellWidth = layout.cellWidth;
+        this._currentCellHeight = layout.cellHeight;
+
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneHeatMap",
             { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
@@ -50,6 +53,17 @@ export class HeatMapVisualization {
             return;
         }
 
+        // Check if cell dimensions changed and recreate basePlane to avoid z-fighting
+        if (changeType === "cell_size_changed" || changeType === "geometry_and_data") {
+            const newCellWidth = this.layout.cellWidth;
+            const newCellHeight = this.layout.cellHeight;
+
+            if (Math.abs(newCellWidth - this._currentCellWidth) > 1e-6 ||
+                Math.abs(newCellHeight - this._currentCellHeight) > 1e-6) {
+                this._recreateBasePlane(newCellWidth, newCellHeight);
+            }
+        }
+
         if (changeType === "data_only") {
             this.renderData(snapshot);
             return;
@@ -57,6 +71,36 @@ export class HeatMapVisualization {
 
         this.renderGeometry(snapshot);
         this.renderData(snapshot);
+    }
+
+    _recreateBasePlane(newCellWidth, newCellHeight) {
+        // Store current material and visibility state
+        const material = this.basePlane.material;
+        const isPickable = this.basePlane.isPickable;
+        const isVisible = this.basePlane.isVisible;
+
+        // Clear instances first to prevent z-fighting
+        this._clearInstances();
+
+        // Dispose old mesh
+        this.basePlane.dispose(false, false); // Don't dispose material or children
+
+        // Create new mesh with updated dimensions
+        this.basePlane = BABYLON.MeshBuilder.CreatePlane(
+            "basePlaneHeatMap",
+            { height: newCellHeight, width: newCellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            this.scene
+        );
+
+        // Restore properties
+        this.basePlane.material = material;
+        this.basePlane.isPickable = isPickable;
+        this.basePlane.isVisible = isVisible;
+        this.basePlane.thinInstanceEnablePicking = true;
+
+        // Update tracked dimensions
+        this._currentCellWidth = newCellWidth;
+        this._currentCellHeight = newCellHeight;
     }
 
     render(snapshot = this.layout.getVisibleSnapshot()) {

@@ -135,6 +135,37 @@ class LCVDSLayout {
         return this.setScrollOffsets(targetRow, targetCol);
     }
 
+    setVisibleViewport(visibleRows, visibleCols) {
+        const targetRows = Math.max(1, Math.min(Math.round(visibleRows), this.totalRows));
+        const targetCols = Math.max(1, Math.min(Math.round(visibleCols), this.totalCols));
+
+        if (targetRows === this.visibleRows && targetCols === this.visibleCols) {
+            return false;
+        }
+
+        this.visibleRows = targetRows;
+        this.visibleCols = targetCols;
+
+        // Recalculate cell dimensions based on new viewport
+        this.cellWidth = this.visibleCols > 0 ? this.arcLength / this.visibleCols : 0;
+        this.cellHeight = this.visibleRows > 0 ? this.height / this.visibleRows : 0;
+
+        // Clamp scroll offsets to valid range with new viewport size
+        const rowMax = Math.max(0, this.totalRows - this.visibleRows);
+        const colMax = Math.max(0, this.totalCols - this.visibleCols);
+        this.scrollRowOffset = Math.min(this.scrollRowOffset, rowMax);
+        this.scrollColOffset = Math.min(this.scrollColOffset, colMax);
+
+        // Notify observers about the cell dimension change
+        this._notifyObservers("cell_size_changed");
+
+        // Update geometry and data
+        this._updateGeometry();
+        this._updateData({ changeType: "geometry_and_data" });
+
+        return true;
+    }
+
     _inferColumnMetadata() {
         const meta = {};
         for (const key of this.columnKeys) {

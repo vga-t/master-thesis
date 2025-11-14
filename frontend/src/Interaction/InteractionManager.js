@@ -429,6 +429,9 @@ export class InteractionManager {
         } else if (metadata.kind === "handle") {
             const local = this.minimap.worldToLocal(pickInfo.pickedPoint);
             this._minimapInteraction = { type: "resize", controller, handle: metadata, local };
+        } else if (metadata.kind === "viewportHandle") {
+            const local = this.minimap.worldToLocal(pickInfo.pickedPoint);
+            this._minimapInteraction = { type: "viewportResize", controller, handle: metadata, anchorLocal: local };
         } else if (metadata.kind === "viewport") {
             const local = this.minimap.worldToLocal(pickInfo.pickedPoint);
             this._minimapInteraction = { type: "viewport", controller };
@@ -472,6 +475,33 @@ export class InteractionManager {
             const normalized = this.minimap.normalizeLocalPoint(localPoint);
             this.minimap.previewViewportFromNormalized(normalized.row, normalized.col);
             this._applyViewportDrag(normalized);
+        } else if (state.type === "viewportResize") {
+            const result = this.minimap.resizeViewportFromHandle(state.handle, localPoint, state.anchorLocal);
+            if (result) {
+                this._applyViewportResize(result);
+            }
+        }
+    }
+
+    _applyViewportResize(result) {
+        if (!result) return;
+
+        const { visibleRows, visibleCols, rowOffset, colOffset } = result;
+
+        // Apply the new visible viewport size to the layout
+        const viewportChanged = this.layout.setVisibleViewport(visibleRows, visibleCols);
+
+        // Apply the new scroll offsets
+        this.layout.setScrollOffsets(rowOffset, colOffset);
+
+        // Update minimap with new state
+        if (viewportChanged) {
+            this.minimap.updateViewport(this.layout.getScrollState(), {
+                visibleRows: this.layout.visibleRows,
+                visibleCols: this.layout.visibleCols,
+                totalRows: this.layout.totalRows,
+                totalCols: this.layout.totalCols
+            });
         }
     }
 
