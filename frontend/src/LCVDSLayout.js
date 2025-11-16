@@ -39,6 +39,14 @@ class LCVDSLayout {
         this.columnMetadata = this._inferColumnMetadata();
 
         this._observers = new Set();
+
+        // Buffer cache to avoid frequent allocations
+        this._buffers = {
+            positionMatrix: new Float32Array(0),
+            normalizedData: new Float32Array(0),
+            rawData: []
+        };
+
         this._visibleSnapshot = {
             rowOffset: this.scrollRowOffset,
             colOffset: this.scrollColOffset,
@@ -67,13 +75,16 @@ class LCVDSLayout {
     }
 
     setRowFocusStrategy(strategy = null) {
-        this._rowFocusStrategy = strategy ? { ...strategy } : null;
-        this._updateGeometry();
-        this._updateData({ changeType: "geometry_and_data" });
+        this.setFocusStrategies(strategy, this._colFocusStrategy);
     }
 
     setColumnFocusStrategy(strategy = null) {
-        this._colFocusStrategy = strategy ? { ...strategy } : null;
+        this.setFocusStrategies(this._rowFocusStrategy, strategy);
+    }
+
+    setFocusStrategies(rowStrategy, colStrategy) {
+        this._rowFocusStrategy = rowStrategy ? { ...rowStrategy } : null;
+        this._colFocusStrategy = colStrategy ? { ...colStrategy } : null;
         this._updateGeometry();
         this._updateData({ changeType: "geometry_and_data" });
     }
@@ -135,11 +146,14 @@ class LCVDSLayout {
         return this.setScrollOffsets(targetRow, targetCol);
     }
 
-    setVisibleViewport(visibleRows, visibleCols) {
+    setVisibleViewport(visibleRows, visibleCols, rowOffset = null, colOffset = null) {
         const targetRows = Math.max(1, Math.min(Math.round(visibleRows), this.totalRows));
         const targetCols = Math.max(1, Math.min(Math.round(visibleCols), this.totalCols));
 
-        if (targetRows === this.visibleRows && targetCols === this.visibleCols) {
+        const viewportChanged = (targetRows !== this.visibleRows || targetCols !== this.visibleCols);
+
+        // If nothing changed and no offsets provided, return
+        if (!viewportChanged && rowOffset === null && colOffset === null) {
             return false;
         }
 
@@ -150,18 +164,81 @@ class LCVDSLayout {
         this.cellWidth = this.visibleCols > 0 ? this.arcLength / this.visibleCols : 0;
         this.cellHeight = this.visibleRows > 0 ? this.height / this.visibleRows : 0;
 
-        // Clamp scroll offsets to valid range with new viewport size
+        // Clamp scroll offsets
         const rowMax = Math.max(0, this.totalRows - this.visibleRows);
         const colMax = Math.max(0, this.totalCols - this.visibleCols);
-        this.scrollRowOffset = Math.min(this.scrollRowOffset, rowMax);
-        this.scrollColOffset = Math.min(this.scrollColOffset, colMax);
 
-        // Notify observers about the cell dimension change
-        this._notifyObservers("cell_size_changed");
+        let newRowOffset = this.scrollRowOffset;
+        let newColOffset = this.scrollColOffset;
 
-        // Update geometry and data
-        this._updateGeometry();
-        this._updateData({ changeType: "geometry_and_data" });
+        if (rowOffset !== null) {
+            newRowOffset = Math.max(0, Math.min(rowOffset, rowMax));
+        } else {
+            newRowOffset = Math.min(newRowOffset, rowMax);
+        }
+
+        if (colOffset !== null) {
+            newColOffset = Math.max(0, Math.min(colOffset, colMax));
+        } else {
+            newColOffset = Math.min(newColOffset, colMax);
+        }
+
+        const offsetsChanged = (newRowOffset !== this.scrollRowOffset || newColOffset !== this.scrollColOffset);
+
+        this.scrollRowOffset = newRowOffset;
+        this.scrollColOffset = newColOffset;
+
+        if (viewportChanged) {
+            // Notify observers about the cell dimension change
+            this._notifyObservers("cell_size_changed");
+            // Full update
+            this._updateGeometry();
+            this._updateData({ changeType: "geometry_and_data" });
+        } else if (offsetsChanged) {
+            // Just data update if only offsets changed (and geometry didn't need resize)
+            // But wait, scrolling changes geometry too because of focus+context (weights depend on indices)
+            // So we usually need geometry update on scroll too if focus+context is active.
+            // However, the original code only called _updateData on scroll. 
+            // Let's check _updateGeometry: it uses scrollRowOffset/scrollColOffset to determine indices.
+            // So yes, geometry MUST be updated on scroll if we want focus+context to work correctly with scrolling.
+            // But the original code: setScrollOffsets -> _updateData({ changeType: "data_only" })
+            // Wait, if I scroll, the indices change. _updateData recalculates normalizedData based on indices.
+            // But _updateGeometry calculates positions based on indices.
+            // If I scroll, the positions of the cells (the grid) might stay the same in "uniform" mode, 
+            // but in "focus+context" mode, the grid distorts based on WHICH rows are visible.
+            // So _updateGeometry IS needed on scroll for Focus+Context.
+            // The original code might have been optimized for uniform grid where geometry is static relative to the container?
+            // No, _updateGeometry uses this.scrollRowOffset.
+
+            // Let's stick to the safe side: update geometry if offsets change.
+            // But to keep original behavior if it was intentional:
+            // Original setScrollOffsets called _updateData("data_only").
+            // _updateData uses scrollRowOffset.
+            // _updateGeometry uses scrollRowOffset.
+            // If we don't call _updateGeometry, the positions won't update.
+            // If the grid is uniform, positions are just a grid. 
+            // If we scroll, the data shifts through the grid.
+            // So "data_only" implies the grid mesh stays static, and we just swap the colors/values on it.
+            // This is correct for uniform grids.
+            // For Focus+Context, the grid SHAPE depends on the row indices (if focus is absolute to data indices).
+            // If focus is relative to viewport (e.g. "center of screen"), then grid is static.
+            // LCVDSLayout _buildAxisWeights uses indices: `indices.map(...)`.
+            // And indices depend on scrollOffset.
+            // So if focus is attached to specific data rows (data-driven focus), geometry changes on scroll.
+            // If focus is attached to screen coordinates (lens), geometry is static (relative to scroll).
+            // The current implementation: `focusFlags = indices.map(...)`.
+            // `focusStrategy.start` / `end` seem to be data indices.
+            // So geometry DOES change on scroll if focus is active.
+
+            // Optimization: Check if focus is active.
+            const hasFocus = this._rowFocusStrategy || this._colFocusStrategy;
+            if (hasFocus) {
+                this._updateGeometry();
+                this._updateData({ changeType: "geometry_and_data" });
+            } else {
+                this._updateData({ changeType: "data_only" });
+            }
+        }
 
         return true;
     }
@@ -270,22 +347,19 @@ class LCVDSLayout {
 
     _updateGeometry() {
         if (!this.totalRows || !this.totalCols) {
-            this._visibleSnapshot = {
-                ...this._visibleSnapshot,
-                rowCount: 0,
-                colCount: 0,
-                positionMatrix: new Float32Array(0),
-                rowWeights: [],
-                colWeights: [],
-                rowScaleFactors: [],
-                colScaleFactors: []
-            };
+            // ... (reset snapshot)
             return;
         }
 
         const rowCount = Math.min(this.visibleRows, this.totalRows);
         const colCount = Math.min(this.visibleCols, this.totalCols);
-        const matrix = new Float32Array(rowCount * colCount * 16);
+        const requiredSize = rowCount * colCount * 16;
+
+        // Reuse buffer if possible
+        if (this._buffers.positionMatrix.length < requiredSize) {
+            this._buffers.positionMatrix = new Float32Array(requiredSize);
+        }
+        const matrix = this._buffers.positionMatrix.subarray(0, requiredSize);
 
         const rowIndices = Array.from({ length: rowCount }, (_, idx) => this.scrollRowOffset + idx);
         const columnIndices = Array.from({ length: colCount }, (_, idx) => this.scrollColOffset + idx);
@@ -328,21 +402,46 @@ class LCVDSLayout {
         let matrixOffset = 0;
         for (let r = 0; r < rowCount; r++) {
             const y = rowCenters[r] ?? (this.groundOffset + (rowCount - 1 - r) * this.cellHeight + this.cellHeight / 2);
+            const sy = rowWeightInfo.scaleFactors[r] ?? 1;
+
             for (let c = 0; c < colCount; c++) {
                 const angle = colAngles[c] ?? startAngle;
-                const x = this.radius * Math.sin(angle);
-                const z = this.radius * Math.cos(angle) - this.radius;
+                const sx = colWeightInfo.scaleFactors[c] ?? 1;
 
-                const scaling = new BABYLON.Vector3(
-                    colWeightInfo.scaleFactors[c] ?? 1,
-                    rowWeightInfo.scaleFactors[r] ?? 1,
-                    1
-                );
+                const sinA = Math.sin(angle);
+                const cosA = Math.cos(angle);
 
-                const rotation = BABYLON.Quaternion.RotationYawPitchRoll(angle, 0, 0);
-                const translation = new BABYLON.Vector3(x, y, z);
-                const composed = BABYLON.Matrix.Compose(scaling, rotation, translation).asArray();
-                matrix.set(composed, matrixOffset);
+                const x = this.radius * sinA;
+                const z = this.radius * cosA - this.radius;
+
+                // Manual matrix construction: Scale * RotationY * Translation
+                // Row-major storage for Babylon (but math is usually column-vector P' = M*P? No, Babylon is P' = P*M)
+                // If P' = P * M, then M = S * R * T
+
+                // Row 0
+                matrix[matrixOffset + 0] = sx * cosA;
+                matrix[matrixOffset + 1] = 0;
+                matrix[matrixOffset + 2] = sx * -sinA; // Babylon Left-Handed Y-rotation
+                matrix[matrixOffset + 3] = 0;
+
+                // Row 1
+                matrix[matrixOffset + 4] = 0;
+                matrix[matrixOffset + 5] = sy;
+                matrix[matrixOffset + 6] = 0;
+                matrix[matrixOffset + 7] = 0;
+
+                // Row 2
+                matrix[matrixOffset + 8] = sinA;
+                matrix[matrixOffset + 9] = 0;
+                matrix[matrixOffset + 10] = cosA;
+                matrix[matrixOffset + 11] = 0;
+
+                // Row 3 (Translation)
+                matrix[matrixOffset + 12] = x;
+                matrix[matrixOffset + 13] = y;
+                matrix[matrixOffset + 14] = z;
+                matrix[matrixOffset + 15] = 1;
+
                 matrixOffset += 16;
             }
         }
@@ -366,42 +465,54 @@ class LCVDSLayout {
         const colCount = this._visibleSnapshot.colCount ?? 0;
 
         if (!this.totalRows || !this.totalCols || rowCount === 0 || colCount === 0) {
-            this._visibleSnapshot = {
-                ...this._visibleSnapshot,
-                rowOffset: this.scrollRowOffset,
-                colOffset: this.scrollColOffset,
-                rowIndices: [],
-                columnIndices: [],
-                columnKeys: [],
-                normalizedData: new Float32Array(0),
-                rawData: []
-            };
+            // ... (reset snapshot)
             this._notifyObservers("geometry_and_data");
             return;
         }
 
-        const normalizedData = new Float32Array(rowCount * colCount);
-        const rawData = new Array(rowCount * colCount);
+        const requiredSize = rowCount * colCount;
+        if (this._buffers.normalizedData.length < requiredSize) {
+            this._buffers.normalizedData = new Float32Array(requiredSize);
+        }
+        // rawData is Array, not TypedArray, so we just resize or clear
+        if (this._buffers.rawData.length < requiredSize) {
+            this._buffers.rawData = new Array(requiredSize);
+        }
+
+        const normalizedData = this._buffers.normalizedData.subarray(0, requiredSize);
+        const rawData = this._buffers.rawData; // We'll just use indices up to requiredSize
+
         const rowIndices = [];
         const columnIndices = [];
-        const columnKeys = this.columnKeys.slice(this.scrollColOffset, this.scrollColOffset + colCount);
+
+        // Pre-calculate active column keys and normalizers to avoid repeated lookups
+        const activeKeys = [];
+        const activeNormalizers = [];
+        for (let c = 0; c < colCount; c++) {
+            const globalCol = this.scrollColOffset + c;
+            const key = this.columnKeys[globalCol];
+            activeKeys.push(key);
+            activeNormalizers.push(this.columnMetadata[key]?.normalize);
+            columnIndices.push(globalCol);
+        }
+        const columnKeys = activeKeys; // Reuse the array we just built
 
         for (let r = 0; r < rowCount; r++) {
             rowIndices.push(this.scrollRowOffset + r);
-        }
-        for (let c = 0; c < colCount; c++) {
-            columnIndices.push(this.scrollColOffset + c);
         }
 
         let dataIndex = 0;
         for (let r = 0; r < rowCount; r++) {
             const globalRow = this.scrollRowOffset + r;
             const rowData = this.csvData[globalRow] ?? {};
+
             for (let c = 0; c < colCount; c++) {
-                const globalCol = this.scrollColOffset + c;
-                const key = this.columnKeys[globalCol];
-                const originalValue = rowData[key];
-                const normalizedValue = this._normalizeValue(key, originalValue);
+                const originalValue = rowData[activeKeys[c]];
+                const normalizer = activeNormalizers[c];
+
+                // Inline normalization check
+                const normalizedValue = normalizer ? (Number.isFinite(val = normalizer(originalValue)) ? val : 0) : 0;
+                var val; // Hoisted var for the inline check
 
                 normalizedData[dataIndex] = normalizedValue;
                 rawData[dataIndex] = originalValue;
@@ -417,7 +528,7 @@ class LCVDSLayout {
             columnIndices,
             columnKeys,
             normalizedData,
-            rawData
+            rawData // Note: rawData might contain stale data beyond requiredSize, but consumers should use rowCount*colCount
         };
 
         this._notifyObservers(changeType);

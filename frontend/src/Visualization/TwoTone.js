@@ -106,6 +106,12 @@ export class TwoToneVisualization {
         this._initShaders();
         this._applyShaderMaterial();
 
+        this._buffers = {
+            split: new Float32Array(0),
+            color1: new Float32Array(0),
+            color2: new Float32Array(0)
+        };
+
         this._lastPaletteCount = 6;
         this._lastIntervals = undefined;
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
@@ -260,20 +266,41 @@ export class TwoToneVisualization {
         }
 
         const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
+        const count = normalizedData.length;
 
-        const splitArr = new Float32Array(normalizedData.length);
-        const color1Arr = new Float32Array(normalizedData.length * 4);
-        const color2Arr = new Float32Array(normalizedData.length * 4);
+        // Resize buffers if needed
+        if (this._buffers.split.length < count) {
+            this._buffers.split = new Float32Array(count);
+        }
+        if (this._buffers.color1.length < count * 4) {
+            this._buffers.color1 = new Float32Array(count * 4);
+        }
+        if (this._buffers.color2.length < count * 4) {
+            this._buffers.color2 = new Float32Array(count * 4);
+        }
+
+        const splitArr = this._buffers.split.subarray(0, count);
+        const color1Arr = this._buffers.color1.subarray(0, count * 4);
+        const color2Arr = this._buffers.color2.subarray(0, count * 4);
+
         const neutralColor = [1, 1, 1];
         const paletteListRaw = this.config.colorList.slice(0, Math.max(1, paletteCount ?? this.config.colorList.length));
         const paletteList = paletteListRaw.length ? paletteListRaw : this.config.colorList;
 
+        // Pre-calculate column metadata and global indices
+        const colMeta = [];
+        const colGlobalIndices = [];
+        for (let c = 0; c < colCount; c++) {
+            const colKey = columnKeys[c];
+            colMeta.push(this.layout.columnMetadata[colKey]);
+            colGlobalIndices.push(columnIndices[c]);
+        }
+
         for (let idx = 0; idx < normalizedData.length; idx++) {
             const value = normalizedData[idx];
             const colIndex = idx % colCount;
-            const colKey = columnKeys[colIndex];
-            const meta = this.layout.columnMetadata[colKey];
-            const globalCol = columnIndices[colIndex];
+            const meta = colMeta[colIndex];
+            const globalCol = colGlobalIndices[colIndex];
 
             let split = 1.0;
             let colorOne = neutralColor;

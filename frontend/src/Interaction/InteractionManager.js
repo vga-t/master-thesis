@@ -78,6 +78,8 @@ export class InteractionManager {
         this._lastTriggerReleaseTime = 0;
         this._rightTriggerClickTimer = null;
         this._activeSqueezeMode = null;
+        this._lastViewportResizeTime = 0;
+        this._viewportResizeThrottleMs = 32; // ~30fps limit for heavy layout updates
 
         this._setupVRControllers();
 
@@ -486,26 +488,26 @@ export class InteractionManager {
     _applyViewportResize(result) {
         if (!result) return;
 
+        const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+        if (now - this._lastViewportResizeTime < this._viewportResizeThrottleMs) {
+            return;
+        }
+        this._lastViewportResizeTime = now;
+
         const { visibleRows, visibleCols, rowOffset, colOffset } = result;
 
-        // Apply the new visible viewport size to the layout
-        const viewportChanged = this.layout.setVisibleViewport(visibleRows, visibleCols);
-
-        // Apply the new scroll offsets
-        this.layout.setScrollOffsets(rowOffset, colOffset);
-
-        // Update minimap with new state
-        if (viewportChanged) {
-            this.minimap.updateViewport(this.layout.getScrollState(), {
-                visibleRows: this.layout.visibleRows,
-                visibleCols: this.layout.visibleCols,
-                totalRows: this.layout.totalRows,
-                totalCols: this.layout.totalCols
-            });
-        }
+        // Apply the new visible viewport size and scroll offsets in one go
+        // This prevents double updates (one for size, one for scroll)
+        this.layout.setVisibleViewport(visibleRows, visibleCols, rowOffset, colOffset);
     }
 
     _applyViewportDrag(normalized) {
+        const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+        if (now - this._lastViewportResizeTime < this._viewportResizeThrottleMs) {
+            return;
+        }
+        this._lastViewportResizeTime = now;
+
         const scrollState = this.layout.getScrollState();
         const maxRow = Math.max(0, scrollState.maxRowOffset ?? 0);
         const maxCol = Math.max(0, scrollState.maxColOffset ?? 0);
@@ -518,15 +520,7 @@ export class InteractionManager {
 
         const targetRow = maxRow > 0 ? Math.round(adjustedRowNorm * maxRow) : 0;
         const targetCol = maxCol > 0 ? Math.round((1 - adjustedColNorm) * maxCol) : 0;
-        const changed = this.layout.setScrollOffsets(targetRow, targetCol);
-        if (changed) {
-            this.minimap.updateViewport(this.layout.getScrollState(), {
-                visibleRows: this.layout.visibleRows,
-                visibleCols: this.layout.visibleCols,
-                totalRows: this.layout.totalRows,
-                totalCols: this.layout.totalCols
-            });
-        }
+        this.layout.setScrollOffsets(targetRow, targetCol);
     }
 
     _adjustViewportSensitivity(value, factor) {
@@ -546,12 +540,21 @@ export class InteractionManager {
 
     _syncMinimap() {
         if (!this.minimap) return;
-        this.minimap.updateViewport(this.layout.getScrollState(), {
-            visibleRows: this.layout.visibleRows,
-            visibleCols: this.layout.visibleCols,
-            totalRows: this.layout.totalRows,
-            totalCols: this.layout.totalCols
-        });
+
+        const isInteracting = this._minimapInteraction && (
+            this._minimapInteraction.type === "viewport" ||
+            this._minimapInteraction.type === "viewportResize"
+        );
+
+        if (!isInteracting) {
+            this.minimap.updateViewport(this.layout.getScrollState(), {
+                visibleRows: this.layout.visibleRows,
+                visibleCols: this.layout.visibleCols,
+                totalRows: this.layout.totalRows,
+                totalCols: this.layout.totalCols
+            });
+        }
+
         if (this._minimapInteraction && this._minimapVisible) {
             this._updateMinimapInteraction();
         }

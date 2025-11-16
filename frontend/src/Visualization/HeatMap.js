@@ -42,6 +42,8 @@ export class HeatMapVisualization {
         );
         this.basePlane.material = new BABYLON.StandardMaterial("planeMaterial", scene);
 
+        this._colorBuffer = new Float32Array(0);
+
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
@@ -127,16 +129,29 @@ export class HeatMapVisualization {
         }
 
         const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
-        const colorsArr = new Float32Array(normalizedData.length * 4);
+        const requiredSize = normalizedData.length * 4;
+
+        if (this._colorBuffer.length < requiredSize) {
+            this._colorBuffer = new Float32Array(requiredSize);
+        }
+        const colorsArr = this._colorBuffer.subarray(0, requiredSize);
+
         const neutralColor = [0.5, 0.5, 0.5];
+
+        // Pre-calculate column metadata and color indices
+        const colMeta = [];
+        const colColorIndices = [];
+        for (let c = 0; c < colCount; c++) {
+            const colKey = columnKeys[c];
+            colMeta.push(this.layout.columnMetadata[colKey]);
+            colColorIndices.push(columnIndices[c] % this.colorListLength);
+        }
 
         for (let idx = 0; idx < normalizedData.length; idx++) {
             const value = normalizedData[idx];
             const colIndex = idx % colCount;
-            const colKey = columnKeys[colIndex];
-            const meta = this.layout.columnMetadata[colKey];
-            const globalColIndex = columnIndices[colIndex];
-            const colorIndex = globalColIndex % this.colorListLength;
+            const meta = colMeta[colIndex];
+            const colorIndex = colColorIndices[colIndex];
 
             let r = neutralColor[0];
             let g = neutralColor[1];
@@ -145,7 +160,7 @@ export class HeatMapVisualization {
             switch (meta?.type) {
                 case "numeric":
                 case "date": {
-                    const mapped = this.colorMapping(value, colorIndex) ?? [0.5, 0.5, 0.5];
+                    const mapped = this.colorMapping(value, colorIndex) ?? neutralColor;
                     r = mapped[0];
                     g = mapped[1];
                     b = mapped[2];
