@@ -1,25 +1,59 @@
 import * as BABYLON from "babylonjs";
-import Color from "colorjs.io";
+import { twoToneConfig } from "./TwoTone";
+
+const normalizeColorComponent = (c) => Math.max(0, Math.min(1, c / 255));
+const normalizeColor = (color) => color.map(normalizeColorComponent);
+const normalizedPaletteList = twoToneConfig.colorList.map((palette) => palette.map(normalizeColor));
 
 export const heatMapConfig = {
-    colorComponentRange: [35, 65],
+    paletteList: normalizedPaletteList,
 
-    colorList: [
-        new Color("hsl", [0, 100, 0], 1),
-        new Color("hsl", [60, 100, 0.5], 1),
-        new Color("hsl", [120, 100, 0.5], 1),
-        new Color("hsl", [240, 100, 0.5], 1),
-        new Color("hsl", [180, 100, 0.5], 1)
-    ],
-
-    get colorListLength() {
-        return this.colorList.length;
+    get paletteCount() {
+        return this.paletteList.length;
     },
 
-    colorMapping(dataValue, colorIndex) {
-        const lightnessValue = this.colorComponentRange[0] * (1 - dataValue) + this.colorComponentRange[1] * dataValue;
-        this.colorList[colorIndex].l = lightnessValue;
-        return this.colorList[colorIndex].srgb;
+    getPaletteForColumn(columnIndex) {
+        if (!this.paletteList.length) return null;
+        return this.paletteList[columnIndex % this.paletteList.length];
+    },
+
+    clampNormalizedValue(value) {
+        if (typeof value !== "number" || Number.isNaN(value)) return 0;
+        return Math.min(1, Math.max(0, value));
+    },
+
+    interpolatePalette(palette, value) {
+        if (!palette || palette.length === 0) return [0.5, 0.5, 0.5];
+        if (palette.length === 1) return palette[0];
+
+        const t = this.clampNormalizedValue(value);
+        const scaled = t * (palette.length - 1);
+        const idx = Math.min(palette.length - 2, Math.floor(scaled));
+        const ratio = scaled - idx;
+
+        const c1 = palette[idx];
+        const c2 = palette[idx + 1];
+
+        return [
+            c1[0] + (c2[0] - c1[0]) * ratio,
+            c1[1] + (c2[1] - c1[1]) * ratio,
+            c1[2] + (c2[2] - c1[2]) * ratio
+        ];
+    },
+
+    getNumericColor(value, columnIndex) {
+        const palette = this.getPaletteForColumn(columnIndex);
+        return this.interpolatePalette(palette, value);
+    },
+
+    getCategoryColor(value, columnIndex, categoryCount) {
+        const palette = this.getPaletteForColumn(columnIndex);
+        if (!palette || palette.length === 0) return [0.5, 0.5, 0.5];
+        const clamped = this.clampNormalizedValue(value);
+        const lookupIndex = categoryCount > 1
+            ? Math.round(clamped * (categoryCount - 1))
+            : 0;
+        return palette[lookupIndex % palette.length] ?? palette[0];
     }
 };
 
@@ -29,8 +63,6 @@ export class HeatMapVisualization {
         this.layout = layout;
         this.config = heatMapConfig;
         this.scene = scene;
-        this.colorMapping = heatMapConfig.colorMapping.bind(heatMapConfig);
-        this.colorListLength = heatMapConfig.colorListLength;
 
         this._currentCellWidth = layout.cellWidth;
         this._currentCellHeight = layout.cellHeight;
@@ -40,13 +72,25 @@ export class HeatMapVisualization {
             { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
-        this.basePlane.material = new BABYLON.StandardMaterial("planeMaterial", scene);
+        const material = new BABYLON.StandardMaterial("planeMaterial", scene);
+        this._configureMaterial(material);
+        this.basePlane.material = material;
 
         this._colorBuffer = new Float32Array(0);
 
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
+    }
+
+    _configureMaterial(material) {
+        material.disableLighting = true;
+        material.useVertexColor = true;
+        material.diffuseColor = new BABYLON.Color3(1, 1, 1);
+        material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+        material.specularColor = new BABYLON.Color3(0, 0, 0);
+        material.backFaceCulling = false;
+        material.thinInstanceEnablePicking = true;
     }
 
     _handleLayoutUpdate(snapshot, changeType = "geometry_and_data") {
@@ -96,6 +140,9 @@ export class HeatMapVisualization {
 
         // Restore properties
         this.basePlane.material = material;
+        if (material) {
+            this._configureMaterial(material);
+        }
         this.basePlane.isPickable = isPickable;
         this.basePlane.isVisible = isVisible;
         this.basePlane.thinInstanceEnablePicking = true;
@@ -138,20 +185,20 @@ export class HeatMapVisualization {
 
         const neutralColor = [0.5, 0.5, 0.5];
 
-        // Pre-calculate column metadata and color indices
+        // Pre-calculate column metadata and global indices
         const colMeta = [];
-        const colColorIndices = [];
+        const colGlobalIndices = [];
         for (let c = 0; c < colCount; c++) {
             const colKey = columnKeys[c];
             colMeta.push(this.layout.columnMetadata[colKey]);
-            colColorIndices.push(columnIndices[c] % this.colorListLength);
+            colGlobalIndices.push(columnIndices[c]);
         }
 
         for (let idx = 0; idx < normalizedData.length; idx++) {
             const value = normalizedData[idx];
             const colIndex = idx % colCount;
             const meta = colMeta[colIndex];
-            const colorIndex = colColorIndices[colIndex];
+            const globalColIndex = colGlobalIndices[colIndex];
 
             let r = neutralColor[0];
             let g = neutralColor[1];
@@ -160,21 +207,18 @@ export class HeatMapVisualization {
             switch (meta?.type) {
                 case "numeric":
                 case "date": {
-                    const mapped = this.colorMapping(value, colorIndex) ?? neutralColor;
+                    const mapped = this.config.getNumericColor(value, globalColIndex) ?? neutralColor;
                     r = mapped[0];
                     g = mapped[1];
                     b = mapped[2];
                     break;
                 }
                 case "categorical": {
-                    const baseColor = this.config.colorList[colorIndex];
-                    const categoryIndex = meta.categories.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
-                    const lightness = 40 + (categoryIndex % 5) * 10;
-                    baseColor.l = lightness;
-                    const [cr, cg, cb] = baseColor.srgb;
-                    r = cr;
-                    g = cg;
-                    b = cb;
+                    const categoryCount = meta.categories?.length ?? 0;
+                    const mapped = this.config.getCategoryColor(value, globalColIndex, categoryCount) ?? neutralColor;
+                    r = mapped[0];
+                    g = mapped[1];
+                    b = mapped[2];
                     break;
                 }
                 case "constant":

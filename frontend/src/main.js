@@ -63,8 +63,8 @@ async function initVisualization(csvData) {
         radius: radius,
         height: 5,
         groundOffset: 0.1,
-        viewportRows: Math.min(csvData.length || 1, 300),
-        viewportCols: Math.min(columnCount || 1, 20)
+        viewportRows: Math.min(csvData.length || 1, 150),
+        viewportCols: Math.min(columnCount || 1, 30)
     });
 
     // Create Visualizations

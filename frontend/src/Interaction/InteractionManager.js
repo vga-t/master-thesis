@@ -38,6 +38,8 @@ export class InteractionManager {
         // this._minimapMode = "twotone";
         this._minimapInteraction = null;
         this._rightController = null;
+        this._leftController = null;
+        this._minimapAnchorOffsetLocal = new BABYLON.Vector3(0, 0.08, 0.14);
         this._minimapUpdateObserver = this.scene.onBeforeRenderObservable.add(() => {
             this._syncMinimap();
         });
@@ -162,7 +164,7 @@ export class InteractionManager {
                     }
                 }
                 else if (motionController.handness === "left") {
-                    this._attachLeftController(motionController);
+                    this._attachLeftController(motionController, controller);
 
                 }
 
@@ -196,7 +198,8 @@ export class InteractionManager {
     //         });
     //     }
     // }
-    _attachLeftController(motionController) {
+    _attachLeftController(motionController, controller) {
+        this._leftController = controller;
         const thumbstick = motionController.getComponent('xr-standard-thumbstick')
             || motionController.getComponent('xr-standard-touchpad');
 
@@ -304,6 +307,7 @@ export class InteractionManager {
             this.xrHelper.input.onControllerRemovedObservable.add(controller => {
                 if (controller?.motionController?.handness === "left") {
                     this._detachLeftThumbstick();
+                    this._leftController = null;
                 } else if (controller?.motionController?.handness === "right") {
                     if (this._activeSqueezeMode === "focus") {
                         this.focusContext?.handleTriggerRelease?.();
@@ -384,6 +388,18 @@ export class InteractionManager {
 
     _placeMinimap(controller) {
         const camera = this.scene?.activeCamera;
+        const anchorPose = this._getControllerPose(this._leftController);
+        if (anchorPose) {
+            const offset = this._minimapAnchorOffsetLocal ?? BABYLON.Vector3.Zero();
+            const anchoredPos = anchorPose.position.add(this._offsetFromBasis(offset, anchorPose));
+            this.minimap.setRootPosition(anchoredPos);
+            if (camera?.globalPosition) {
+                this.minimap.setForward(camera.globalPosition.subtract(anchoredPos));
+            } else {
+                this.minimap.setForward(anchorPose.forward.scale(-1));
+            }
+            return;
+        }
         const ref = controller?.grip || controller?.pointer;
         let position;
         let forward;
@@ -457,8 +473,16 @@ export class InteractionManager {
         if (state.type === "move") {
             const grip = controller.grip || controller.pointer;
             if (grip?.getAbsolutePosition) {
-                const newPos = grip.getAbsolutePosition().add(state.offset);
-                this.minimap.setRootPosition(newPos);
+                const desiredPos = grip.getAbsolutePosition().add(state.offset);
+                const anchorPose = this._getControllerPose(this._leftController);
+                if (anchorPose) {
+                    const worldOffset = desiredPos.subtract(anchorPose.position);
+                    this._minimapAnchorOffsetLocal = this._projectOffsetToBasis(worldOffset, anchorPose);
+                    const nextPos = anchorPose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, anchorPose));
+                    this.minimap.setRootPosition(nextPos);
+                } else {
+                    this.minimap.setRootPosition(desiredPos);
+                }
             }
             return;
         }
@@ -541,6 +565,8 @@ export class InteractionManager {
     _syncMinimap() {
         if (!this.minimap) return;
 
+        this._updateMinimapAnchor();
+
         const isInteracting = this._minimapInteraction && (
             this._minimapInteraction.type === "viewport" ||
             this._minimapInteraction.type === "viewportResize"
@@ -558,6 +584,68 @@ export class InteractionManager {
         if (this._minimapInteraction && this._minimapVisible) {
             this._updateMinimapInteraction();
         }
+    }
+
+    _updateMinimapAnchor() {
+        if (!this.minimap || !this._minimapVisible) return;
+        const pose = this._getControllerPose(this._leftController);
+        const camera = this.scene?.activeCamera;
+
+        if (pose) {
+            const offsetLocal = this._minimapAnchorOffsetLocal ?? BABYLON.Vector3.Zero();
+            const offsetWorld = this._offsetFromBasis(offsetLocal, pose);
+            const targetPos = pose.position.add(offsetWorld);
+            this.minimap.setRootPosition(targetPos);
+
+            if (camera?.globalPosition) {
+                this.minimap.setForward(camera.globalPosition.subtract(targetPos));
+            } else {
+                this.minimap.setForward(pose.forward.scale(-1));
+            }
+            return;
+        }
+
+        if (camera?.globalPosition) {
+            const currentPos = this.minimap.getRootPosition();
+            this.minimap.setForward(camera.globalPosition.subtract(currentPos));
+        }
+    }
+
+    _getControllerPose(controller) {
+        if (!controller) return null;
+        const node = controller.grip || controller.pointer;
+        if (!node?.getWorldMatrix) return null;
+        const world = node.getWorldMatrix();
+        const position = node.getAbsolutePosition
+            ? node.getAbsolutePosition()
+            : BABYLON.Vector3.TransformCoordinates(BABYLON.Vector3.Zero(), world);
+        const forward = BABYLON.Vector3.TransformNormal(BABYLON.Axis.Z, world).normalize();
+        const up = BABYLON.Vector3.TransformNormal(BABYLON.Axis.Y, world).normalize();
+        let right = BABYLON.Vector3.Cross(up, forward);
+        if (right.lengthSquared() < 1e-6) {
+            right = BABYLON.Axis.X.clone();
+        } else {
+            right.normalize();
+        }
+        return { position, forward, up, right };
+    }
+
+    _offsetFromBasis(localOffset, basis) {
+        if (!basis) return BABYLON.Vector3.Zero();
+        const x = basis.right ? basis.right.scale(localOffset.x) : BABYLON.Vector3.Zero();
+        const y = basis.up ? basis.up.scale(localOffset.y) : BABYLON.Vector3.Zero();
+        const z = basis.forward ? basis.forward.scale(localOffset.z) : BABYLON.Vector3.Zero();
+        return x.add(y).add(z);
+    }
+
+    _projectOffsetToBasis(worldOffset, basis) {
+        if (!basis) return BABYLON.Vector3.Zero();
+        const { right, up, forward } = basis;
+        return new BABYLON.Vector3(
+            right ? BABYLON.Vector3.Dot(worldOffset, right) : 0,
+            up ? BABYLON.Vector3.Dot(worldOffset, up) : 0,
+            forward ? BABYLON.Vector3.Dot(worldOffset, forward) : 0
+        );
     }
 
     dispose() {
