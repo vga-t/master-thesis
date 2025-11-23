@@ -243,6 +243,65 @@ class LCVDSLayout {
         return true;
     }
 
+    /**
+     * Update layout parameters (arc angle, radius, height) dynamically.
+     * This is optimized to avoid full reconstruction of the visualization.
+     * @param {Object} params - { arcAngle?, radius?, height? } - arcAngle in radians
+     * @returns {boolean} - true if any parameter changed
+     */
+    setLayoutParameters({ arcAngle, radius, height }) {
+        let changed = false;
+
+        if (arcAngle !== undefined && arcAngle !== this.arcAngle) {
+            this.arcAngle = arcAngle;
+            changed = true;
+        }
+
+        if (radius !== undefined && radius !== this.radius) {
+            this.radius = radius;
+            changed = true;
+        }
+
+        if (height !== undefined && height !== this.height) {
+            this.height = height;
+            changed = true;
+        }
+
+        if (!changed) return false;
+
+        // Recalculate derived values
+        this.arcLength = this.radius * this.arcAngle;
+        this.cellWidth = this.visibleCols > 0 ? this.arcLength / this.visibleCols : 0;
+        this.cellHeight = this.visibleRows > 0 ? this.height / this.visibleRows : 0;
+
+        // Update visible snapshot with new values
+        if (this._visibleSnapshot) {
+            this._visibleSnapshot.cellWidth = this.cellWidth;
+            this._visibleSnapshot.cellHeight = this.cellHeight;
+            this._visibleSnapshot.arcAngle = this.arcAngle;
+            this._visibleSnapshot.arcLength = this.arcLength;
+        }
+
+        // Full geometry and data update
+        this._updateGeometry();
+        this._updateData({ changeType: "geometry_and_data" });
+
+        return true;
+    }
+
+    /**
+     * Get current layout parameters
+     * @returns {Object} - { arcAngle, radius, height, arcLength }
+     */
+    getLayoutParameters() {
+        return {
+            arcAngle: this.arcAngle,
+            radius: this.radius,
+            height: this.height,
+            arcLength: this.arcLength
+        };
+    }
+
     _inferColumnMetadata() {
         const meta = {};
         for (const key of this.columnKeys) {

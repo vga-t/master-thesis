@@ -1,15 +1,17 @@
 import * as BABYLON from "babylonjs";
 import MinimapVisualization from "../Visualization/Minimap.js";
+import LCVDSSliders from "../Visualization/LCVDSSliders.js";
 import FocusPlusContext from "./Focus+Context.js";
 import RubberBandSelection from "./RubberBandSelection.js";
 
 export class InteractionManager {
-    constructor(layout, { heatMap, twoTone }, xrHelper, scene) {
+    constructor(layout, { heatMap, twoTone }, xrHelper, scene, options = {}) {
         this.xrHelper = xrHelper;
         this.scene = scene;
         this.layout = layout;
         this.heatMap = heatMap;
         this.twoTone = twoTone;
+        this._options = options;
 
         if (this.heatMap?.basePlane) {
             this.heatMap.basePlane.isPickable = true;
@@ -40,6 +42,24 @@ export class InteractionManager {
         this._rightController = null;
         this._leftController = null;
         this._minimapAnchorOffsetLocal = new BABYLON.Vector3(0, 0.08, 0.14);
+
+        // Docking zone parameters - distance threshold to re-dock minimap to wrist
+        this._dockDistanceThreshold = 0.15; // meters - how close to wrist to trigger docking
+        this._dockZoneIndicator = null; // Visual indicator for dock zone
+        this._showDockZoneWhenFloating = true;
+
+        // LCVDS Layout Sliders - anchored to minimap
+        // Callback to handle layout parameter changes
+        this._onLayoutParametersChange = this._options?.onLayoutParametersChange || null;
+        this.lcvdsSliders = new LCVDSSliders(this.minimap.root, scene, {
+            initialArcAngle: (layout.arcAngle * 180 / Math.PI) || 180,
+            initialRadius: layout.radius || 6,
+            initialHeight: layout.height || 5,
+            onLayoutChange: (values) => this._handleSliderLayoutChange(values)
+        });
+        this.lcvdsSliders.setVisible(false);
+        this._sliderInteraction = null;
+
         this._minimapUpdateObserver = this.scene.onBeforeRenderObservable.add(() => {
             this._syncMinimap();
         });
@@ -352,6 +372,42 @@ export class InteractionManager {
         this.minimap?.setMode(mode);
     }
 
+    /**
+     * Handle layout parameter changes from the 3D sliders.
+     * This method is called when the user adjusts arc angle, radius, or height.
+     * @param {Object} values - { arcAngle, radius, height }
+     */
+    _handleSliderLayoutChange(values) {
+        // Notify external callback if provided
+        if (this._onLayoutParametersChange) {
+            this._onLayoutParametersChange({
+                arcAngle: values.arcAngle * Math.PI / 180, // Convert to radians
+                radius: values.radius,
+                height: values.height
+            });
+        }
+    }
+
+    /**
+     * Get the current slider values
+     * @returns {Object} { arcAngle, radius, height }
+     */
+    getLayoutSliderValues() {
+        return this.lcvdsSliders?.getValues() ?? {
+            arcAngle: 180,
+            radius: 6,
+            height: 5
+        };
+    }
+
+    /**
+     * Set slider values programmatically
+     * @param {Object} values - { arcAngle?, radius?, height? }
+     */
+    setLayoutSliderValues(values) {
+        this.lcvdsSliders?.setValues(values);
+    }
+
     _buildForwardRay(ctrl, length = 100) {
         if (!ctrl) return null;
         const pointer = ctrl.pointer || ctrl.grip || ctrl;
@@ -366,6 +422,17 @@ export class InteractionManager {
         const visible = !this._minimapVisible;
         this._minimapVisible = visible;
         this.minimap.setVisible(visible);
+
+        // Show/hide LCVDS sliders with minimap
+        if (this.lcvdsSliders) {
+            this.lcvdsSliders.setVisible(visible);
+            if (visible) {
+                // Update slider position based on minimap dimensions
+                const dims = this.minimap.getDimensions();
+                this.lcvdsSliders.updatePosition(dims.width, dims.height);
+            }
+        }
+
         if (visible) {
             this.minimap.refreshCanvasDimensions({
                 totalRows: this.layout.totalRows,
@@ -429,6 +496,31 @@ export class InteractionManager {
         const ray = this._buildForwardRay(controller);
         if (!ray) return false;
 
+        // First, check for slider interaction (sliders are above minimap, so check first)
+        const sliderPickInfo = this.scene.pickWithRay(ray, mesh => mesh?.metadata?.lcvdsSlider === true, false);
+        if (sliderPickInfo?.hit && sliderPickInfo.pickedMesh?.metadata?.lcvdsSlider) {
+            const sliderMesh = sliderPickInfo.pickedMesh;
+            const sliderKey = this.lcvdsSliders?.getSliderKeyFromMesh(sliderMesh);
+            const sliderKind = this.lcvdsSliders?.getSliderKindFromMesh(sliderMesh);
+
+            if (sliderKey && this.lcvdsSliders) {
+                if (sliderKind === "handle") {
+                    // Start dragging the slider handle
+                    this.lcvdsSliders.startDrag(sliderKey, controller);
+                    this._sliderInteraction = { type: "sliderDrag", controller, sliderKey };
+                    return true;
+                } else if (sliderKind === "track") {
+                    // Click on track to set value directly
+                    this.lcvdsSliders.handleTrackClick(sliderKey, sliderPickInfo.pickedPoint);
+                    // Also start drag from this position
+                    this.lcvdsSliders.startDrag(sliderKey, controller);
+                    this._sliderInteraction = { type: "sliderDrag", controller, sliderKey };
+                    return true;
+                }
+            }
+        }
+
+        // Check for minimap interaction
         const pickInfo = this.scene.pickWithRay(ray, mesh => mesh?.metadata?.minimap === true, false);
         if (!pickInfo || !pickInfo.hit) return false;
 
@@ -436,7 +528,18 @@ export class InteractionManager {
         if (!target?.metadata) return;
 
         const metadata = target.metadata;
-        if (metadata.kind === "main") {
+        if (metadata.kind === "detachHandle") {
+            // Grabbing the detach handle - this will undock and allow free placement
+            const grip = controller?.grip || controller?.pointer;
+            if (grip?.getAbsolutePosition) {
+                const gripPos = grip.getAbsolutePosition();
+                const rootPos = this.minimap.getRootPosition();
+                const offset = rootPos.subtract(gripPos);
+                // Undock the minimap when grabbing the detach handle
+                this.minimap.setDocked(false);
+                this._minimapInteraction = { type: "detach", controller, offset };
+            }
+        } else if (metadata.kind === "main") {
             const grip = controller?.grip || controller?.pointer;
             if (grip?.getAbsolutePosition) {
                 const gripPos = grip.getAbsolutePosition();
@@ -461,10 +564,45 @@ export class InteractionManager {
     }
 
     _endMinimapInteraction() {
+        // End slider interaction if active
+        if (this._sliderInteraction) {
+            this.lcvdsSliders?.endDrag();
+            this._sliderInteraction = null;
+        }
+
+        // Check if we should dock the minimap when releasing the detach handle
+        if (this._minimapInteraction?.type === "detach") {
+            this._checkAndDockMinimap();
+        }
         this._minimapInteraction = null;
+        // Hide dock zone indicator
+        this._updateDockZoneIndicator(false);
+    }
+
+    _checkAndDockMinimap() {
+        if (!this.minimap || !this._leftController) return;
+
+        const pose = this._getControllerPose(this._leftController);
+        if (!pose) return;
+
+        const minimapPos = this.minimap.getRootPosition();
+        const wristDockPos = pose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, pose));
+        const distance = BABYLON.Vector3.Distance(minimapPos, wristDockPos);
+
+        if (distance <= this._dockDistanceThreshold) {
+            // Dock the minimap back to wrist
+            this.minimap.setDocked(true);
+            this.minimap.setRootPosition(wristDockPos);
+        }
     }
 
     _updateMinimapInteraction() {
+        // Handle slider drag updates
+        if (this._sliderInteraction?.type === "sliderDrag") {
+            this.lcvdsSliders?.updateDrag(this._sliderInteraction.controller);
+            return;
+        }
+
         if (!this._minimapInteraction) return;
         const state = this._minimapInteraction;
         const controller = state.controller;
@@ -475,7 +613,7 @@ export class InteractionManager {
             if (grip?.getAbsolutePosition) {
                 const desiredPos = grip.getAbsolutePosition().add(state.offset);
                 const anchorPose = this._getControllerPose(this._leftController);
-                if (anchorPose) {
+                if (anchorPose && this.minimap.isDocked()) {
                     const worldOffset = desiredPos.subtract(anchorPose.position);
                     this._minimapAnchorOffsetLocal = this._projectOffsetToBasis(worldOffset, anchorPose);
                     const nextPos = anchorPose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, anchorPose));
@@ -483,6 +621,20 @@ export class InteractionManager {
                 } else {
                     this.minimap.setRootPosition(desiredPos);
                 }
+            }
+            return;
+        }
+
+        if (state.type === "detach") {
+            // Handle detach/floating movement - minimap follows controller freely
+            const grip = controller.grip || controller.pointer;
+            if (grip?.getAbsolutePosition) {
+                const desiredPos = grip.getAbsolutePosition().add(state.offset);
+                this.minimap.setRootPosition(desiredPos);
+
+                // Show dock zone indicator and check proximity to wrist
+                this._updateDockZoneIndicator(true);
+                this._checkDockProximity(desiredPos);
             }
             return;
         }
@@ -497,6 +649,11 @@ export class InteractionManager {
 
         if (state.type === "resize") {
             this.minimap.resizeFromHandle(state.handle, localPoint);
+            // Update slider positions when minimap is resized
+            if (this.lcvdsSliders) {
+                const dims = this.minimap.getDimensions();
+                this.lcvdsSliders.updatePosition(dims.width, dims.height);
+            }
         } else if (state.type === "viewport") {
             const normalized = this.minimap.normalizeLocalPoint(localPoint);
             this.minimap.previewViewportFromNormalized(normalized.row, normalized.col);
@@ -505,6 +662,75 @@ export class InteractionManager {
             const result = this.minimap.resizeViewportFromHandle(state.handle, localPoint, state.anchorLocal);
             if (result) {
                 this._applyViewportResize(result);
+            }
+        }
+    }
+
+    _checkDockProximity(minimapPos) {
+        if (!this._leftController) return;
+
+        const pose = this._getControllerPose(this._leftController);
+        if (!pose) return;
+
+        const wristDockPos = pose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, pose));
+        const distance = BABYLON.Vector3.Distance(minimapPos, wristDockPos);
+
+        // Provide visual feedback when close to dock zone
+        const isNearDock = distance <= this._dockDistanceThreshold * 1.5;
+        const isInDockZone = distance <= this._dockDistanceThreshold;
+
+        // Update dock zone indicator color based on proximity
+        if (this._dockZoneIndicator) {
+            if (isInDockZone) {
+                this._dockZoneIndicator.material.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3); // Green - will dock
+                this._dockZoneIndicator.material.emissiveColor = new BABYLON.Color3(0.1, 0.45, 0.15);
+            } else if (isNearDock) {
+                this._dockZoneIndicator.material.diffuseColor = new BABYLON.Color3(0.9, 0.8, 0.2); // Yellow - approaching
+                this._dockZoneIndicator.material.emissiveColor = new BABYLON.Color3(0.45, 0.4, 0.1);
+            } else {
+                this._dockZoneIndicator.material.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.9); // Cyan - default
+                this._dockZoneIndicator.material.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.45);
+            }
+        }
+    }
+
+    _updateDockZoneIndicator(show) {
+        if (!this._leftController || !this.minimap) return;
+
+        const pose = this._getControllerPose(this._leftController);
+        if (!pose && show) return;
+
+        if (show && !this.minimap.isDocked()) {
+            // Create dock zone indicator if needed
+            if (!this._dockZoneIndicator) {
+                this._dockZoneIndicator = BABYLON.MeshBuilder.CreateTorus("dockZoneIndicator", {
+                    diameter: this._dockDistanceThreshold * 2,
+                    thickness: 0.008,
+                    tessellation: 32
+                }, this.scene);
+                this._dockZoneIndicator.isPickable = false;
+                const mat = new BABYLON.StandardMaterial("dockZoneMat", this.scene);
+                mat.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.9);
+                mat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.45);
+                mat.alpha = 0.6;
+                mat.disableLighting = true;
+                mat.backFaceCulling = false;
+                this._dockZoneIndicator.material = mat;
+            }
+
+            // Position at wrist dock location
+            if (pose) {
+                const dockPos = pose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, pose));
+                this._dockZoneIndicator.position.copyFrom(dockPos);
+                // Orient to face outward from wrist
+                const forward = pose.forward.clone().scale(-1);
+                this._dockZoneIndicator.lookAt(dockPos.add(forward));
+            }
+            this._dockZoneIndicator.setEnabled(true);
+        } else {
+            // Hide dock zone indicator
+            if (this._dockZoneIndicator) {
+                this._dockZoneIndicator.setEnabled(false);
             }
         }
     }
@@ -567,9 +793,11 @@ export class InteractionManager {
 
         this._updateMinimapAnchor();
 
+        // Don't update viewport during interactions that modify it (prevents flickering)
         const isInteracting = this._minimapInteraction && (
             this._minimapInteraction.type === "viewport" ||
-            this._minimapInteraction.type === "viewportResize"
+            this._minimapInteraction.type === "viewportResize" ||
+            this._minimapInteraction.type === "resize"
         );
 
         if (!isInteracting) {
@@ -588,6 +816,19 @@ export class InteractionManager {
 
     _updateMinimapAnchor() {
         if (!this.minimap || !this._minimapVisible) return;
+
+        // Only follow the wrist anchor when docked
+        if (!this.minimap.isDocked()) {
+            // Floating mode - just update orientation to face camera
+            const camera = this.scene?.activeCamera;
+            if (camera?.globalPosition) {
+                const currentPos = this.minimap.getRootPosition();
+                this.minimap.setForward(camera.globalPosition.subtract(currentPos));
+            }
+            return;
+        }
+
+        // Docked mode - follow the wrist
         const pose = this._getControllerPose(this._leftController);
         const camera = this.scene?.activeCamera;
 
@@ -660,8 +901,16 @@ export class InteractionManager {
         if (this._leftThumbstickComponent && this._leftThumbstickObserver) {
             this._leftThumbstickComponent.onAxisValueChangedObservable.remove(this._leftThumbstickObserver);
         }
+        if (this.lcvdsSliders) {
+            this.lcvdsSliders.dispose();
+            this.lcvdsSliders = null;
+        }
         if (this.minimap) {
             this.minimap.dispose();
+        }
+        if (this._dockZoneIndicator) {
+            this._dockZoneIndicator.dispose();
+            this._dockZoneIndicator = null;
         }
         if (this._rightTriggerClickTimer) {
             clearTimeout(this._rightTriggerClickTimer);

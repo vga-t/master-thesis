@@ -7,14 +7,19 @@ import SceneManager from "./sceneManager.js";
 import loadCSV from "./dataLoader.js";
 import LCVDSLayout from "./LCVDSLayout.js";
 
-const radius = 6;
-const arcAngle = 180;
+// Initial layout parameters (can be changed via 3D sliders)
+let currentLayoutParams = {
+    radius: 6,
+    arcAngle: 180, // in degrees
+    height: 5
+};
+
 const BACKEND_URL = "http://localhost:8000";
 
 // Initialize Scene
-const sceneManager = new SceneManager("renderCanvas", radius);
+const sceneManager = new SceneManager("renderCanvas", currentLayoutParams.radius);
 const scene = sceneManager.scene;
-const xrHelper = await sceneManager.setupXR(radius).catch(e => console.warn("Cannot set XR up", e));
+const xrHelper = await sceneManager.setupXR(currentLayoutParams.radius).catch(e => console.warn("Cannot set XR up", e));
 sceneManager.setupMultiRayCasting(xrHelper);
 
 // Global variables for visualization components
@@ -56,12 +61,12 @@ async function initVisualization(csvData) {
     if (columnHeaders) columnHeaders.dispose();
     if (interaction) interaction.dispose();
 
-    // Create Layout
+    // Create Layout using current parameters
     const columnCount = csvData.length ? Object.keys(csvData[0]).length : 0;
     layout = new LCVDSLayout(csvData, {
-        arcAngle: arcAngle * Math.PI / 180,
-        radius: radius,
-        height: 5,
+        arcAngle: currentLayoutParams.arcAngle * Math.PI / 180,
+        radius: currentLayoutParams.radius,
+        height: currentLayoutParams.height,
         groundOffset: 0.1,
         viewportRows: Math.min(csvData.length || 1, 150),
         viewportCols: Math.min(columnCount || 1, 30)
@@ -80,8 +85,33 @@ async function initVisualization(csvData) {
     currentVis.render(6, 6);
     currentVis.basePlane.isVisible = true;
 
-    // Interaction
-    interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene);
+    // Interaction with layout change callback
+    interaction = new InteractionManager(layout, { heatMap, twoTone }, xrHelper, scene, {
+        onLayoutParametersChange: handleLayoutParametersChange
+    });
+}
+
+/**
+ * Handle layout parameter changes from the 3D sliders.
+ * Uses optimized layout update instead of full reconstruction.
+ * @param {Object} params - { arcAngle (radians), radius, height }
+ */
+function handleLayoutParametersChange(params) {
+    // Update current params (convert arcAngle back to degrees for storage)
+    currentLayoutParams = {
+        arcAngle: params.arcAngle * 180 / Math.PI,
+        radius: params.radius,
+        height: params.height
+    };
+
+    // Use the optimized layout parameter update
+    if (layout) {
+        layout.setLayoutParameters({
+            arcAngle: params.arcAngle,
+            radius: params.radius,
+            height: params.height
+        });
+    }
 }
 
 async function reloadVisualization() {
