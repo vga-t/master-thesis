@@ -176,11 +176,38 @@ export default class RubberBandSelection {
         this._renderObserver = null;
     }
 
+    /**
+     * Fast O(1) mathematical picking using layout geometry.
+     * Falls back to thin instance picking if layout method unavailable.
+     */
     _pickActivePlane(controller) {
         if (!controller || !this.scene) return null;
         const ray = this._buildForwardRay(controller);
+        if (!ray) return null;
+
+        // Try fast mathematical picking first (O(1))
+        if (this.layout?.pickCellFromRay) {
+            const mathResult = this.layout.pickCellFromRay(ray);
+            if (mathResult) {
+                // Return a compatible object with thinInstanceIndex computed from row/col
+                const snapshot = this._latestSnapshot ?? this.layout?.getVisibleSnapshot();
+                if (snapshot && snapshot.colCount > 0) {
+                    const thinInstanceIndex = mathResult.localRow * snapshot.colCount + mathResult.localCol;
+                    return {
+                        hit: true,
+                        pickedPoint: mathResult.hitPoint,
+                        distance: mathResult.distance,
+                        thinInstanceIndex,
+                        ray,
+                        _mathPick: mathResult // Store original for direct access
+                    };
+                }
+            }
+        }
+
+        // Fallback to thin instance picking (O(n)) if math picking fails
         const targetMesh = this._getActivePlane?.();
-        if (!ray || !targetMesh) return null;
+        if (!targetMesh) return null;
         return this.scene.pickWithRay(ray, mesh => mesh === targetMesh, false);
     }
 

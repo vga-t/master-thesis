@@ -661,6 +661,162 @@ class LCVDSLayout {
             }
         });
     }
+
+    /**
+     * Fast O(1) ray picking for the LCVDS cylindrical surface.
+     * Instead of checking every thin instance, this uses mathematical
+     * ray-cylinder intersection to find which cell is hit.
+     * 
+     * @param {BABYLON.Ray} ray - The ray to test (from controller)
+     * @returns {Object|null} - { localRow, localCol, globalRow, globalCol, hitPoint, distance } or null if no hit
+     */
+    pickCellFromRay(ray) {
+        if (!ray || !this._visibleSnapshot) return null;
+
+        const snapshot = this._visibleSnapshot;
+        const { rowCount, colCount, rowIndices, columnIndices } = snapshot;
+        if (rowCount <= 0 || colCount <= 0) return null;
+
+        // Cylinder parameters:
+        // Center axis runs vertically at (0, y, -radius)
+        // Cylinder has radius = this.radius
+        // The LCVDS is the inner surface facing the user
+
+        const cylinderCenterX = 0;
+        const cylinderCenterZ = -this.radius;
+        const R = this.radius;
+
+        // Ray: P(t) = origin + t * direction
+        const ox = ray.origin.x;
+        const oy = ray.origin.y;
+        const oz = ray.origin.z;
+        const dx = ray.direction.x;
+        const dy = ray.direction.y;
+        const dz = ray.direction.z;
+
+        // Transform to cylinder's local XZ (centered at cylinder axis)
+        const localOx = ox - cylinderCenterX;
+        const localOz = oz - cylinderCenterZ;
+
+        // Quadratic equation for ray-cylinder intersection (infinite cylinder along Y):
+        // (localOx + t*dx)^2 + (localOz + t*dz)^2 = R^2
+        // Expanding: (dx^2 + dz^2)*t^2 + 2*(localOx*dx + localOz*dz)*t + (localOx^2 + localOz^2 - R^2) = 0
+        const a = dx * dx + dz * dz;
+        const b = 2 * (localOx * dx + localOz * dz);
+        const c = localOx * localOx + localOz * localOz - R * R;
+
+        // Handle degenerate case (ray parallel to cylinder axis)
+        if (Math.abs(a) < 1e-10) return null;
+
+        const discriminant = b * b - 4 * a * c;
+        if (discriminant < 0) return null; // No intersection
+
+        const sqrtDisc = Math.sqrt(discriminant);
+        const t1 = (-b - sqrtDisc) / (2 * a);
+        const t2 = (-b + sqrtDisc) / (2 * a);
+
+        // We want the inner surface (user is inside or outside looking at concave side)
+        // For LCVDS, user is typically in front (z > -radius) looking at the curved display
+        // t2 is the farther hit (going through the cylinder)
+        // t1 is the closer hit
+        // We want the hit where the normal points toward the user (concave surface)
+
+        let t = null;
+        // Check both intersections, prefer the one that hits the visible arc range
+        for (const candidate of [t1, t2]) {
+            if (candidate < 0.001) continue; // Behind the ray origin
+            if (candidate > ray.length) continue; // Beyond ray length
+
+            const hitX = ox + candidate * dx;
+            const hitY = oy + candidate * dy;
+            const hitZ = oz + candidate * dz;
+
+            // Check if within height range
+            if (hitY < this.groundOffset || hitY > this.groundOffset + this.height) continue;
+
+            // Check if within arc angle range
+            // Angle from center of cylinder to hit point (in XZ plane)
+            const relX = hitX - cylinderCenterX;
+            const relZ = hitZ - cylinderCenterZ;
+            const angle = Math.atan2(relX, relZ); // atan2(x, z) for angle from +Z axis
+
+            const halfArc = this.arcAngle / 2;
+            if (angle < -halfArc || angle > halfArc) continue;
+
+            t = candidate;
+            break;
+        }
+
+        if (t === null) return null;
+
+        // Calculate hit point
+        const hitX = ox + t * dx;
+        const hitY = oy + t * dy;
+        const hitZ = oz + t * dz;
+        const hitPoint = new BABYLON.Vector3(hitX, hitY, hitZ);
+
+        // Convert hit point to row/col indices
+        const relX = hitX - cylinderCenterX;
+        const relZ = hitZ - cylinderCenterZ;
+        const hitAngle = Math.atan2(relX, relZ);
+
+        // Map angle to column index
+        // startAngle = -arcAngle/2, angles go from left to right
+        const halfArc = this.arcAngle / 2;
+        const normalizedAngle = (hitAngle + halfArc) / this.arcAngle; // 0 to 1
+
+        // Account for focus+context column spacing if weights are available
+        let localCol;
+        if (snapshot.colWeights && snapshot.colWeights.length === colCount) {
+            // Use cumulative weights to find column
+            let cumWeight = 0;
+            localCol = colCount - 1;
+            for (let c = 0; c < colCount; c++) {
+                cumWeight += snapshot.colWeights[c];
+                if (normalizedAngle <= cumWeight) {
+                    localCol = c;
+                    break;
+                }
+            }
+        } else {
+            localCol = Math.floor(normalizedAngle * colCount);
+        }
+        localCol = Math.max(0, Math.min(localCol, colCount - 1));
+
+        // Map height to row index (top is row 0)
+        const relHeight = hitY - this.groundOffset;
+        const normalizedHeight = 1 - (relHeight / this.height); // Invert: top is row 0
+
+        // Account for focus+context row spacing if weights are available
+        let localRow;
+        if (snapshot.rowWeights && snapshot.rowWeights.length === rowCount) {
+            // Use cumulative weights to find row
+            let cumWeight = 0;
+            localRow = rowCount - 1;
+            for (let r = 0; r < rowCount; r++) {
+                cumWeight += snapshot.rowWeights[r];
+                if (normalizedHeight <= cumWeight) {
+                    localRow = r;
+                    break;
+                }
+            }
+        } else {
+            localRow = Math.floor(normalizedHeight * rowCount);
+        }
+        localRow = Math.max(0, Math.min(localRow, rowCount - 1));
+
+        const globalRow = rowIndices?.[localRow] ?? (this.scrollRowOffset + localRow);
+        const globalCol = columnIndices?.[localCol] ?? (this.scrollColOffset + localCol);
+
+        return {
+            localRow,
+            localCol,
+            globalRow,
+            globalCol,
+            hitPoint,
+            distance: t
+        };
+    }
 }
 
 export default LCVDSLayout;

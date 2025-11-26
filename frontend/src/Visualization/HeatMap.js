@@ -90,7 +90,6 @@ export class HeatMapVisualization {
         material.emissiveColor = new BABYLON.Color3(1, 1, 1);
         material.specularColor = new BABYLON.Color3(0, 0, 0);
         material.backFaceCulling = false;
-        material.thinInstanceEnablePicking = true;
     }
 
     _handleLayoutUpdate(snapshot, changeType = "geometry_and_data") {
@@ -145,7 +144,6 @@ export class HeatMapVisualization {
         }
         this.basePlane.isPickable = isPickable;
         this.basePlane.isVisible = isVisible;
-        this.basePlane.thinInstanceEnablePicking = true;
 
         // Update tracked dimensions
         this._currentCellWidth = newCellWidth;

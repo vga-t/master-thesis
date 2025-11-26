@@ -231,7 +231,6 @@ export class TwoToneVisualization {
         // Restore properties
         this.basePlane.isPickable = isPickable;
         this.basePlane.isVisible = isVisible;
-        this.basePlane.thinInstanceEnablePicking = true;
 
         // Update tracked dimensions
         this._currentCellWidth = newCellWidth;

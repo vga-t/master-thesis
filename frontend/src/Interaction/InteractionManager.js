@@ -15,12 +15,10 @@ export class InteractionManager {
 
         if (this.heatMap?.basePlane) {
             this.heatMap.basePlane.isPickable = true;
-            this.heatMap.basePlane.thinInstanceEnablePicking = true;
         }
 
         if (this.twoTone?.basePlane) {
             this.twoTone.basePlane.isPickable = true;
-            this.twoTone.basePlane.thinInstanceEnablePicking = true;
         }
 
         this._rowScrollSpeed = Math.max(6, Math.round(this.layout.visibleRows / 1.5));
@@ -256,11 +254,13 @@ export class InteractionManager {
             yButton.onButtonStateChangedObservable.add(component => {
                 if (!component.changes.pressed) return;
                 if (component.pressed) {
+                    // Y-button available for future use
                     this.rubberBandSelection?.setVisualizationMode("parallel");
                 }
             });
         }
     }
+
     _applyDeadzone(value, deadZone = 0.1) {
         return Math.abs(value) < deadZone ? 0 : value;
     }
