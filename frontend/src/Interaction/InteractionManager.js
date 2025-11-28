@@ -93,7 +93,9 @@ export class InteractionManager {
             scene,
             layout,
             camera: () => this.scene?.activeCamera,
-            getActivePlane: () => this._resolveActiveSelectionPlane()
+            getActivePlane: () => this._resolveActiveSelectionPlane(),
+            heatMap,
+            twoTone
         });
         this._lastTriggerReleaseTime = 0;
         this._rightTriggerClickTimer = null;
@@ -246,7 +248,8 @@ export class InteractionManager {
             xButton.onButtonStateChangedObservable.add(component => {
                 if (!component.changes.pressed) return;
                 if (component.pressed) {
-                    this.rubberBandSelection?.setVisualizationMode("line");
+                    // X-button: Clear all parallel coordinate plots and restore cell visibility
+                    this.rubberBandSelection?.clearAllPCPs?.();
                 }
             });
         }
@@ -255,7 +258,6 @@ export class InteractionManager {
                 if (!component.changes.pressed) return;
                 if (component.pressed) {
                     // Y-button available for future use
-                    this.rubberBandSelection?.setVisualizationMode("parallel");
                 }
             });
         }

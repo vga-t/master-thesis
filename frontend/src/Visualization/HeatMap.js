@@ -67,6 +67,9 @@ export class HeatMapVisualization {
         this._currentCellWidth = layout.cellWidth;
         this._currentCellHeight = layout.cellHeight;
 
+        // Set of thin instance indices to hide (make transparent)
+        this._hiddenCellIndices = new Set();
+
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneHeatMap",
             { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
@@ -81,6 +84,30 @@ export class HeatMapVisualization {
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
+    }
+
+    /**
+     * Set which cells should be hidden (transparent)
+     * @param {Set<number>} hiddenIndices - Set of thin instance indices to hide
+     */
+    setHiddenCells(hiddenIndices) {
+        this._hiddenCellIndices = hiddenIndices instanceof Set ? hiddenIndices : new Set(hiddenIndices);
+        // Re-render to apply visibility changes
+        const snapshot = this.layout?.getVisibleSnapshot();
+        if (snapshot) {
+            this.renderData(snapshot);
+        }
+    }
+
+    /**
+     * Clear all hidden cells (make all visible)
+     */
+    clearHiddenCells() {
+        this._hiddenCellIndices.clear();
+        const snapshot = this.layout?.getVisibleSnapshot();
+        if (snapshot) {
+            this.renderData(snapshot);
+        }
     }
 
     _configureMaterial(material) {
@@ -228,7 +255,8 @@ export class HeatMapVisualization {
             colorsArr[offset + 0] = r;
             colorsArr[offset + 1] = g;
             colorsArr[offset + 2] = b;
-            colorsArr[offset + 3] = 1;
+            // Set alpha to 0 for hidden cells
+            colorsArr[offset + 3] = this._hiddenCellIndices.has(idx) ? 0 : 1;
         }
 
         this.basePlane.thinInstanceSetBuffer("color", colorsArr, 4);

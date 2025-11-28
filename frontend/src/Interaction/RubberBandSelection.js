@@ -1,5 +1,5 @@
 import * as BABYLON from "babylonjs";
-import EmbeddedVisualization from "../Visualization/EmbeddedVisualization.js";
+import EmbeddedParallelCoordinates from "../Visualization/EmbeddedParallelCoordinates.js";
 
 const DOUBLE_EPSILON = 1e-5;
 const FILL_OFFSET = 0.004;
@@ -12,12 +12,20 @@ const CORNER_LUT = {
 };
 
 export default class RubberBandSelection {
-    constructor({ scene, layout, camera, getActivePlane, embeddedVisualization = null } = {}) {
+    constructor({ scene, layout, camera, getActivePlane, heatMap = null, twoTone = null } = {}) {
         this.scene = scene;
         this.layout = layout;
         this._cameraProvider = typeof camera === "function" ? camera : () => (camera ?? this.scene?.activeCamera ?? null);
         this._getActivePlane = typeof getActivePlane === "function" ? getActivePlane : () => null;
-        this._embeddedViz = embeddedVisualization || new EmbeddedVisualization(scene);
+
+        // Store references to visualizations for cell hiding
+        this._heatMap = heatMap;
+        this._twoTone = twoTone;
+
+        // Support for multiple parallel coordinate plots
+        this._embeddedPCPs = []; // Array of EmbeddedParallelCoordinates instances
+        this._activePCPIndex = -1; // Currently active PCP for resize operations
+        this._allHiddenCellIndices = new Set(); // Combined hidden cells from all PCPs
 
         this._latestSnapshot = this.layout?.getVisibleSnapshot() ?? null;
         this._layoutObserver = this.layout?.addObserver(snapshot => {
@@ -35,22 +43,45 @@ export default class RubberBandSelection {
         this._dragState = null;
         this._activeSelection = null;
         this._renderObserver = null;
-        this._preferredVizMode = "parallel"; // parallel | line
+        this._resizeState = null; // For resize handle dragging
         this._lastPreviewHash = null;
+    }
+
+    /**
+     * Set visualization references (call this if they weren't available at construction)
+     */
+    setVisualizations(heatMap, twoTone) {
+        this._heatMap = heatMap;
+        this._twoTone = twoTone;
     }
 
     beginDrag(controller) {
         if (!controller || this._dragState) return false;
 
-        // First check if clicking on the visualization menu
-        if (this._embeddedViz?.isMenuVisible()) {
+        // First check if clicking on a resize handle from any PCP
+        if (this._embeddedPCPs.length > 0) {
             const ray = this._buildForwardRay(controller);
             if (ray) {
-                const menuMesh = this._embeddedViz.getMenuMesh();
-                if (menuMesh) {
-                    const pickInfo = this.scene.pickWithRay(ray, mesh => mesh === menuMesh, false);
-                    if (this._embeddedViz.handleMenuClick(pickInfo)) {
-                        return true; // Menu handled the click
+                const pickInfo = this.scene.pickWithRay(ray, mesh => {
+                    return mesh?.metadata?.embeddedPCPHandle === true;
+                }, false);
+
+                if (pickInfo?.hit && pickInfo.pickedMesh) {
+                    // Find which PCP owns this handle
+                    for (let i = 0; i < this._embeddedPCPs.length; i++) {
+                        const pcp = this._embeddedPCPs[i];
+                        const handleId = pcp.getResizeHandleId(pickInfo.pickedMesh);
+                        if (handleId && pickInfo.pickedPoint) {
+                            this._activePCPIndex = i;
+                            this._resizeState = {
+                                controller,
+                                handleId,
+                                startPoint: pickInfo.pickedPoint.clone()
+                            };
+                            pcp.beginResize(handleId, pickInfo.pickedPoint);
+                            this._ensureResizeObserver();
+                            return true;
+                        }
                     }
                 }
             }
@@ -80,13 +111,24 @@ export default class RubberBandSelection {
     }
 
     endDrag() {
+        // Handle resize end
+        if (this._resizeState) {
+            if (this._activePCPIndex >= 0 && this._activePCPIndex < this._embeddedPCPs.length) {
+                this._embeddedPCPs[this._activePCPIndex].endResize();
+            }
+            this._clearResizeObserver();
+            this._resizeState = null;
+            this._activePCPIndex = -1;
+            return;
+        }
+
         if (!this._dragState) return;
         const finalSelection = this._computeSelection(this._dragState.startIndices, this._dragState.lastIndices);
         this._clearRenderObserver();
         this._dragState = null;
 
         if (!finalSelection) {
-            this.reset();
+            this._applyPreview(null, { force: true });
             return;
         }
 
@@ -97,20 +139,39 @@ export default class RubberBandSelection {
 
     cancelDrag() {
         this._clearRenderObserver();
+        this._clearResizeObserver();
         this._dragState = null;
+        this._resizeState = null;
+        this._activePCPIndex = -1;
         this._applyPreview(null, { force: true });
+    }
+
+    /**
+     * Clear all parallel coordinate plots and restore cell visibility
+     */
+    clearAllPCPs() {
+        for (const pcp of this._embeddedPCPs) {
+            pcp.dispose();
+        }
+        this._embeddedPCPs = [];
+        this._activePCPIndex = -1;
+        this._allHiddenCellIndices.clear();
+        this._clearCellVisibility();
     }
 
     reset() {
         this._activeSelection = null;
         this._dragState = null;
+        this._resizeState = null;
+        this._activePCPIndex = -1;
         this._clearRenderObserver();
+        this._clearResizeObserver();
         this._applyPreview(null, { force: true });
-        this._embeddedViz?.hide();
+        // Note: reset() doesn't clear PCPs - use clearAllPCPs() for that
     }
 
     dispose() {
-        this.reset();
+        this.clearAllPCPs();
         this._layoutObserver?.();
         this._layoutObserver = null;
         this._fillMesh?.dispose();
@@ -119,27 +180,51 @@ export default class RubberBandSelection {
         this._fillMaterial = null;
         this._outlineMesh?.dispose();
         this._outlineMesh = null;
-        this._embeddedViz?.dispose();
-        this._embeddedViz = null;
-    }
-
-    setVisualizationMode(mode) {
-        if (!mode || !["line", "parallel"].includes(mode)) return;
-        this._preferredVizMode = mode;
-        if (this._activeSelection && this._embeddedViz) {
-            this._embeddedViz.setMode(mode);
-        }
-    }
-
-    getVisualizationMode() {
-        return this._preferredVizMode;
     }
 
     /**
-     * Get the embedded visualization instance for menu interaction
+     * Get all embedded parallel coordinates instances
      */
-    getEmbeddedVisualization() {
-        return this._embeddedViz;
+    getEmbeddedVisualizations() {
+        return this._embeddedPCPs;
+    }
+
+    /**
+     * Update combined cell visibility from all PCPs
+     */
+    _updateAllHiddenCells() {
+        this._allHiddenCellIndices.clear();
+        for (const pcp of this._embeddedPCPs) {
+            const hidden = pcp.getHiddenCellIndices();
+            for (const idx of hidden) {
+                this._allHiddenCellIndices.add(idx);
+            }
+        }
+        this._updateCellVisibility(this._allHiddenCellIndices);
+    }
+
+    /**
+     * Update cell visibility on HeatMap and TwoTone visualizations
+     */
+    _updateCellVisibility(hiddenIndices) {
+        if (this._heatMap) {
+            this._heatMap.setHiddenCells(hiddenIndices);
+        }
+        if (this._twoTone) {
+            this._twoTone.setHiddenCells(hiddenIndices);
+        }
+    }
+
+    /**
+     * Clear all hidden cells (restore visibility)
+     */
+    _clearCellVisibility() {
+        if (this._heatMap) {
+            this._heatMap.clearHiddenCells();
+        }
+        if (this._twoTone) {
+            this._twoTone.clearHiddenCells();
+        }
     }
 
     _ensureRenderObserver() {
@@ -174,6 +259,45 @@ export default class RubberBandSelection {
             this.scene.onBeforeRenderObservable.remove(this._renderObserver);
         }
         this._renderObserver = null;
+    }
+
+    /**
+     * Observer for resize handle dragging
+     */
+    _ensureResizeObserver() {
+        if (this._resizeObserver || !this.scene) return;
+
+        this._resizeObserver = this.scene.onBeforeRenderObservable.add(() => {
+            if (!this._resizeState || this._activePCPIndex < 0) return;
+            if (this._activePCPIndex >= this._embeddedPCPs.length) return;
+
+            const pcp = this._embeddedPCPs[this._activePCPIndex];
+            if (!pcp) return;
+
+            const ray = this._buildForwardRay(this._resizeState.controller);
+            if (!ray) return;
+
+            // Use the PCP's selection geometry for the plane
+            const selection = pcp._selection;
+            if (!selection?.geometry) return;
+
+            const { normal, center } = selection.geometry;
+            const plane = BABYLON.Plane.FromPositionAndNormal(center, normal);
+            const distance = ray.intersectsPlane(plane);
+
+            if (distance !== null && distance > 0) {
+                const hitPoint = ray.origin.add(ray.direction.scale(distance));
+                pcp.updateResize(hitPoint);
+                this._updateAllHiddenCells();
+            }
+        });
+    }
+
+    _clearResizeObserver() {
+        if (this._resizeObserver && this.scene) {
+            this.scene.onBeforeRenderObservable.remove(this._resizeObserver);
+        }
+        this._resizeObserver = null;
     }
 
     /**
@@ -455,23 +579,36 @@ export default class RubberBandSelection {
     }
 
     _showEmbeddedVisualization(selection) {
-        if (!selection || !this._embeddedViz) return;
+        if (!selection) return;
         const rowIndices = selection.rowRange.globalIndices ?? [];
         const colIndices = selection.colRange.globalIndices ?? [];
         if (!rowIndices.length || !colIndices.length) {
-            this._embeddedViz.hide();
             return;
         }
 
+        // Create a new PCP instance for this selection
+        const pcp = new EmbeddedParallelCoordinates(this.scene, this.layout);
+        pcp.onCellVisibilityChange = () => {
+            this._updateAllHiddenCells();
+        };
+
         const geometry = selection.geometry;
-        this._embeddedViz.show({
-            layout: this.layout,
+        pcp.show({
+            selection,
             rowIndices,
             colIndices,
-            geometry,
-            mode: this._preferredVizMode,
-            showMenu: true
+            geometry
         });
+
+        // Add to our list of PCPs
+        this._embeddedPCPs.push(pcp);
+        this._updateAllHiddenCells();
+
+        // Hide the rubber band selection overlay (light blue tint) after PCP is shown
+        this._disableFill();
+        if (this._outlineMesh) {
+            this._outlineMesh.setEnabled(false);
+        }
     }
 
     _updateFillGeometry(selection) {

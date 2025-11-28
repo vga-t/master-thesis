@@ -97,6 +97,9 @@ export class TwoToneVisualization {
         this._currentCellWidth = layout.cellWidth;
         this._currentCellHeight = layout.cellHeight;
 
+        // Set of thin instance indices to hide (make transparent)
+        this._hiddenCellIndices = new Set();
+
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneTwoTone",
             { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
@@ -117,6 +120,30 @@ export class TwoToneVisualization {
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
+    }
+
+    /**
+     * Set which cells should be hidden (transparent)
+     * @param {Set<number>} hiddenIndices - Set of thin instance indices to hide
+     */
+    setHiddenCells(hiddenIndices) {
+        this._hiddenCellIndices = hiddenIndices instanceof Set ? hiddenIndices : new Set(hiddenIndices);
+        // Re-render to apply visibility changes
+        const snapshot = this.layout?.getVisibleSnapshot();
+        if (snapshot) {
+            this.renderData(this._lastPaletteCount, this._lastIntervals, snapshot);
+        }
+    }
+
+    /**
+     * Clear all hidden cells (make all visible)
+     */
+    clearHiddenCells() {
+        this._hiddenCellIndices.clear();
+        const snapshot = this.layout?.getVisibleSnapshot();
+        if (snapshot) {
+            this.renderData(this._lastPaletteCount, this._lastIntervals, snapshot);
+        }
     }
 
     _initShaders() {
@@ -156,10 +183,15 @@ export class TwoToneVisualization {
                 varying vec4 vColor1;
                 varying vec4 vColor2;
                 void main(void) {
+                    // Use alpha from color for visibility control
+                    float alpha = vColor1.a;
+                    if (alpha < 0.01) {
+                        discard;
+                    }
                     if (vUV.x > vSplit) {
-                        gl_FragColor = vColor1;
+                        gl_FragColor = vec4(vColor1.rgb, alpha);
                     } else {
-                        gl_FragColor = vColor2;
+                        gl_FragColor = vec4(vColor2.rgb, alpha);
                     }
                 }
             `;
@@ -330,16 +362,19 @@ export class TwoToneVisualization {
 
             splitArr[idx] = split;
 
+            // Set alpha to 0 for hidden cells
+            const alpha = this._hiddenCellIndices.has(idx) ? 0 : 1;
+
             const offset = idx * 4;
             color1Arr[offset + 0] = (colorOne[0] ?? neutralColor[0]) / 255;
             color1Arr[offset + 1] = (colorOne[1] ?? neutralColor[1]) / 255;
             color1Arr[offset + 2] = (colorOne[2] ?? neutralColor[2]) / 255;
-            color1Arr[offset + 3] = 1;
+            color1Arr[offset + 3] = alpha;
 
             color2Arr[offset + 0] = (colorTwo[0] ?? neutralColor[0]) / 255;
             color2Arr[offset + 1] = (colorTwo[1] ?? neutralColor[1]) / 255;
             color2Arr[offset + 2] = (colorTwo[2] ?? neutralColor[2]) / 255;
-            color2Arr[offset + 3] = 1;
+            color2Arr[offset + 3] = alpha;
         }
 
         this.basePlane.thinInstanceSetBuffer("split", splitArr, 1);
