@@ -885,8 +885,8 @@ const MIN_HEIGHT = 0.25;
 const MAX_WIDTH_DOCKED = 0.5;
 const MAX_HEIGHT_DOCKED = 0.5;
 // Floating max dimensions (when detached - much larger for big datasets)
-const MAX_WIDTH_FLOATING = 1.5;
-const MAX_HEIGHT_FLOATING = 1.2;
+const MAX_WIDTH_FLOATING = 100.0;
+const MAX_HEIGHT_FLOATING = 100.0;
 const MIN_VIEWPORT_SIZE = 0.06;
 
 const BASE_AREA = DEFAULT_WIDTH * DEFAULT_HEIGHT;
@@ -949,8 +949,16 @@ class MinimapVisualization {
         this._material.disableLighting = true;
         this._material.backFaceCulling = false;
         this._material.specularColor = new BABYLON.Color3(0, 0, 0);
-        this._material.diffuseColor = CANVAS_DIFFUSE;
-        this._material.emissiveColor = CANVAS_EMISSIVE;
+        this._material.diffuseColor = new BABYLON.Color3(1, 1, 1);
+        this._material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+        // Generate texture for minimap
+        this._datasetTexture = this._generateDatasetTexture();
+        if (this._datasetTexture) {
+            this._material.diffuseTexture = this._datasetTexture;
+            this._material.emissiveTexture = this._datasetTexture;
+        }
+
         this.mainMesh.material = this._material;
 
         this.viewportMesh = BABYLON.MeshBuilder.CreatePlane("minimapViewport", { width: 1, height: 1 }, scene);
@@ -1433,7 +1441,84 @@ class MinimapVisualization {
         };
     }
 
+    _generateDatasetTexture() {
+        if (!this.layout || !this.layout.csvData || this.layout.totalRows === 0 || this.layout.totalCols === 0) return null;
+
+        const maxDim = 2048;
+        const totalRows = this.layout.totalRows;
+        const totalCols = this.layout.totalCols;
+
+        let texWidth = totalCols;
+        let texHeight = totalRows;
+        let scaleX = 1;
+        let scaleY = 1;
+
+        if (texWidth > maxDim) {
+            scaleX = totalCols / maxDim;
+            texWidth = maxDim;
+        }
+        if (texHeight > maxDim) {
+            scaleY = totalRows / maxDim;
+            texHeight = maxDim;
+        }
+
+        const buffer = new Uint8Array(texWidth * texHeight * 4);
+
+        // Cache normalizers
+        const normalizers = this.layout.columnKeys.map(key => {
+            const meta = this.layout.columnMetadata[key];
+            return meta && meta.normalize ? meta.normalize : (v) => 0;
+        });
+
+        for (let y = 0; y < texHeight; y++) {
+            const rowIndex = Math.floor(y * scaleY);
+            if (rowIndex >= totalRows) break;
+
+            const rowData = this.layout.csvData[rowIndex];
+
+            for (let x = 0; x < texWidth; x++) {
+                const colIndex = Math.floor(x * scaleX);
+                if (colIndex >= totalCols) break;
+
+                const key = this.layout.columnKeys[colIndex];
+                const val = rowData[key];
+
+                // Normalize
+                let n = normalizers[colIndex](val);
+
+                // Clamp 0..1
+                if (n < 0) n = 0;
+                if (n > 1) n = 1;
+
+                // Green color gradient (black to green)
+                const g = Math.floor(n * 255);
+
+                const idx = (y * texWidth + x) * 4;
+                buffer[idx] = 0;     // R
+                buffer[idx + 1] = g; // G
+                buffer[idx + 2] = 0; // B
+                buffer[idx + 3] = 255; // A
+            }
+        }
+
+        const texture = new BABYLON.RawTexture(
+            buffer,
+            texWidth,
+            texHeight,
+            BABYLON.Engine.TEXTUREFORMAT_RGBA,
+            this.scene,
+            true, // generateMipMaps
+            false, // invertY
+            BABYLON.Texture.TRILINEAR_SAMPLINGMODE
+        );
+
+        return texture;
+    }
+
     dispose() {
+        if (this._datasetTexture) {
+            this._datasetTexture.dispose();
+        }
         this.root.dispose();
     }
 }
