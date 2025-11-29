@@ -132,8 +132,10 @@ export default class RubberBandSelection {
             return;
         }
 
-        this._activeSelection = finalSelection;
-        this._applyPreview(finalSelection, { force: true });
+        // Clear the preview immediately before showing embedded visualization
+        // This prevents the blue tint from appearing when the embedded visualization replaces it
+        this._applyPreview(null, { force: true });
+        this._activeSelection = null;
         this._showEmbeddedVisualization(finalSelection);
     }
 
@@ -604,7 +606,10 @@ export default class RubberBandSelection {
         this._embeddedPCPs.push(pcp);
         this._updateAllHiddenCells();
 
-        // Hide the rubber band selection overlay (light blue tint) after PCP is shown
+        // Clear the active selection and hide the rubber band overlay completely
+        // This ensures the blue tint doesn't reappear when the embedded visualization is used
+        this._activeSelection = null;
+        this._lastPreviewHash = null;
         this._disableFill();
         if (this._outlineMesh) {
             this._outlineMesh.setEnabled(false);

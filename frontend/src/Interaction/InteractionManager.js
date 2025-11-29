@@ -308,6 +308,9 @@ export class InteractionManager {
                     const scrolled = this.layout.scrollBy(rowSteps, 0);
                     if (scrolled) {
                         this._scrollAccumulator.row -= rowSteps;
+                        // Clear PCPs when scrolling
+                        this.rubberBandSelection?.clearAllPCPs?.();
+                        this.rubberBandSelection?.reset();
                     } else {
                         this._scrollAccumulator.row = 0;
                     }
@@ -318,6 +321,9 @@ export class InteractionManager {
                     const scrolled = this.layout.scrollBy(0, colSteps);
                     if (scrolled) {
                         this._scrollAccumulator.col -= colSteps;
+                        // Clear PCPs when scrolling
+                        this.rubberBandSelection?.clearAllPCPs?.();
+                        this.rubberBandSelection?.reset();
                     } else {
                         this._scrollAccumulator.col = 0;
                     }
@@ -364,6 +370,7 @@ export class InteractionManager {
     }
 
     _handleRightTriggerDoubleClick() {
+        this.rubberBandSelection?.clearAllPCPs?.();
         this.rubberBandSelection?.reset();
         this.focusContext?.resetToDefault?.();
     }

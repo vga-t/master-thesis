@@ -36,8 +36,8 @@ class SceneManager {
     }
     async setupXR(radius) {
         const ground = BABYLON.MeshBuilder.CreateGround("ground", {
-            height: radius * 2 + 30,
-            width: radius * 2 + 30, subdivisions: 1
+            height: radius * 200 + 30,
+            width: radius * 200 + 30, subdivisions: 1
         }, this.scene);
 
         ground.position.y = .1;
