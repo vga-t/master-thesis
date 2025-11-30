@@ -103,6 +103,11 @@ export class InteractionManager {
         this._lastViewportResizeTime = 0;
         this._viewportResizeThrottleMs = 32; // ~30fps limit for heavy layout updates
 
+        // Lazy update system for viewport resize/zoom operations
+        this._pendingViewportUpdate = null;
+        this._viewportUpdateDebounceMs = 100; // Debounce layout updates during resize
+        this._viewportUpdateTimer = null;
+
         this._setupVRControllers();
 
 
@@ -579,6 +584,11 @@ export class InteractionManager {
             this._sliderInteraction = null;
         }
 
+        // Flush any pending viewport updates when interaction ends
+        if (this._minimapInteraction?.type === "viewportResize" || this._minimapInteraction?.type === "viewport") {
+            this._flushPendingViewportUpdate();
+        }
+
         // Check if we should dock the minimap when releasing the detach handle
         if (this._minimapInteraction?.type === "detach") {
             this._checkAndDockMinimap();
@@ -754,6 +764,35 @@ export class InteractionManager {
         this._lastViewportResizeTime = now;
 
         const { visibleRows, visibleCols, rowOffset, colOffset } = result;
+
+        // Store pending update for lazy application
+        this._pendingViewportUpdate = { visibleRows, visibleCols, rowOffset, colOffset };
+
+        // Clear existing debounce timer
+        if (this._viewportUpdateTimer) {
+            clearTimeout(this._viewportUpdateTimer);
+        }
+
+        // Schedule debounced layout update (actual geometry recalculation)
+        this._viewportUpdateTimer = setTimeout(() => {
+            this._flushPendingViewportUpdate();
+        }, this._viewportUpdateDebounceMs);
+    }
+
+    /**
+     * Flush any pending viewport update immediately.
+     * Called when interaction ends or when debounce timer fires.
+     */
+    _flushPendingViewportUpdate() {
+        if (this._viewportUpdateTimer) {
+            clearTimeout(this._viewportUpdateTimer);
+            this._viewportUpdateTimer = null;
+        }
+
+        if (!this._pendingViewportUpdate) return;
+
+        const { visibleRows, visibleCols, rowOffset, colOffset } = this._pendingViewportUpdate;
+        this._pendingViewportUpdate = null;
 
         // Apply the new visible viewport size and scroll offsets in one go
         // This prevents double updates (one for size, one for scroll)

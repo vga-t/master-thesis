@@ -47,6 +47,10 @@ class LCVDSLayout {
             rawData: []
         };
 
+        // Precomputed normalized data for entire dataset (computed once)
+        this._precomputedNormalizedData = null;
+        this._precomputeFullDataset();
+
         this._visibleSnapshot = {
             rowOffset: this.scrollRowOffset,
             colOffset: this.scrollColOffset,
@@ -402,6 +406,47 @@ class LCVDSLayout {
         if (!normalizer) return 0;
         const result = normalizer(value);
         return Number.isFinite(result) ? result : 0;
+    }
+
+    /**
+     * Precompute normalized data for the entire dataset.
+     * This is called once during initialization and allows fast slicing during scroll.
+     */
+    _precomputeFullDataset() {
+        if (!this.totalRows || !this.totalCols || !this.csvData.length) {
+            this._precomputedNormalizedData = null;
+            return;
+        }
+
+        const totalSize = this.totalRows * this.totalCols;
+        this._precomputedNormalizedData = new Float32Array(totalSize);
+
+        // Pre-cache normalizers for all columns
+        const normalizers = this.columnKeys.map(key => this.columnMetadata[key]?.normalize);
+
+        let dataIndex = 0;
+        for (let r = 0; r < this.totalRows; r++) {
+            const rowData = this.csvData[r] ?? {};
+            for (let c = 0; c < this.totalCols; c++) {
+                const key = this.columnKeys[c];
+                const originalValue = rowData[key];
+                const normalizer = normalizers[c];
+                let normalizedValue = 0;
+                if (normalizer) {
+                    const val = normalizer(originalValue);
+                    normalizedValue = Number.isFinite(val) ? val : 0;
+                }
+                this._precomputedNormalizedData[dataIndex++] = normalizedValue;
+            }
+        }
+    }
+
+    /**
+     * Get precomputed normalized data for the entire dataset.
+     * Returns null if not available.
+     */
+    getPrecomputedNormalizedData() {
+        return this._precomputedNormalizedData;
     }
 
     _updateGeometry() {

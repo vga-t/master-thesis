@@ -30,6 +30,7 @@ let columnHeaders;
 let interaction;
 let currentVis;
 
+
 // Audio Manager
 const audioManager = new AudioManager();
 
@@ -71,6 +72,9 @@ async function initVisualization(csvData) {
         viewportRows: Math.min(csvData.length || 1, 150),
         viewportCols: Math.min(columnCount || 1, 30)
     });
+    console.log("No of rows:", csvData.length);
+    console.log("No of columns:", Object.keys(csvData[0]).length);
+    console.log("No of cells", csvData.length * Object.keys(csvData[0]).length);
 
     // Create Visualizations
     heatMap = new HeatMapVisualization(layout, { heatMapConfig }, scene);

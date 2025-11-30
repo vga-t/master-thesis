@@ -115,11 +115,122 @@ export class TwoToneVisualization {
             color2: new Float32Array(0)
         };
 
+        // Precomputed buffers for entire dataset (computed once, sliced during scroll)
+        this._precomputed = {
+            split: null,
+            color1: null,
+            color2: null,
+            paletteCount: null,
+            intervals: null,
+            totalRows: 0,
+            totalCols: 0
+        };
+
         this._lastPaletteCount = 6;
         this._lastIntervals = undefined;
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
+    }
+
+    /**
+     * Precompute TwoTone colors for the entire dataset.
+     * Call this once after data load or when palette/intervals change.
+     * During scroll, slices of the precomputed buffers are used for rendering.
+     */
+    precomputeFullDataset(paletteCount = 6, intervals = undefined) {
+        const totalRows = this.layout.totalRows;
+        const totalCols = this.layout.totalCols;
+        const precomputedData = this.layout.getPrecomputedNormalizedData?.();
+
+        if (!precomputedData || totalRows === 0 || totalCols === 0) {
+            this._precomputed.split = null;
+            this._precomputed.color1 = null;
+            this._precomputed.color2 = null;
+            return;
+        }
+
+        const totalCount = totalRows * totalCols;
+
+        // Allocate precomputed buffers
+        this._precomputed.split = new Float32Array(totalCount);
+        this._precomputed.color1 = new Float32Array(totalCount * 4);
+        this._precomputed.color2 = new Float32Array(totalCount * 4);
+        this._precomputed.paletteCount = paletteCount;
+        this._precomputed.intervals = intervals;
+        this._precomputed.totalRows = totalRows;
+        this._precomputed.totalCols = totalCols;
+
+        const neutralColor = [1, 1, 1];
+        const paletteListRaw = this.config.colorList.slice(0, Math.max(1, paletteCount ?? this.config.colorList.length));
+        const paletteList = paletteListRaw.length ? paletteListRaw : this.config.colorList;
+
+        const splitArr = this._precomputed.split;
+        const color1Arr = this._precomputed.color1;
+        const color2Arr = this._precomputed.color2;
+
+        // Pre-cache column metadata
+        const colMeta = this.layout.columnKeys.map(key => this.layout.columnMetadata[key]);
+
+        for (let idx = 0; idx < totalCount; idx++) {
+            const value = precomputedData[idx];
+            const colIndex = idx % totalCols;
+            const meta = colMeta[colIndex];
+            const globalCol = colIndex;
+
+            let split = 1.0;
+            let colorOne = neutralColor;
+            let colorTwo = neutralColor;
+
+            switch (meta?.type) {
+                case "numeric":
+                case "date": {
+                    const mapping = this.config.colorMapping(value, paletteList, globalCol, intervals);
+                    colorOne = mapping?.c1 ?? neutralColor;
+                    colorTwo = mapping?.c2 ?? neutralColor;
+                    split = mapping?.splitRatio ?? 1.0;
+                    break;
+                }
+                case "categorical": {
+                    const palette = paletteList[globalCol % paletteList.length] ?? neutralColor;
+                    const categoryIndex = meta.categories?.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
+                    const picked = palette[categoryIndex % palette.length] ?? neutralColor;
+                    colorOne = picked;
+                    colorTwo = picked;
+                    split = 1.0;
+                    break;
+                }
+                case "constant":
+                default:
+                    break;
+            }
+
+            splitArr[idx] = split;
+
+            const offset = idx * 4;
+            color1Arr[offset + 0] = (colorOne[0] ?? neutralColor[0]) / 255;
+            color1Arr[offset + 1] = (colorOne[1] ?? neutralColor[1]) / 255;
+            color1Arr[offset + 2] = (colorOne[2] ?? neutralColor[2]) / 255;
+            color1Arr[offset + 3] = 1; // Alpha set during render based on hidden cells
+
+            color2Arr[offset + 0] = (colorTwo[0] ?? neutralColor[0]) / 255;
+            color2Arr[offset + 1] = (colorTwo[1] ?? neutralColor[1]) / 255;
+            color2Arr[offset + 2] = (colorTwo[2] ?? neutralColor[2]) / 255;
+            color2Arr[offset + 3] = 1;
+        }
+    }
+
+    /**
+     * Check if precomputed data is valid for current settings
+     */
+    _hasValidPrecomputed(paletteCount, intervals) {
+        return this._precomputed.split !== null &&
+            this._precomputed.color1 !== null &&
+            this._precomputed.color2 !== null &&
+            this._precomputed.paletteCount === paletteCount &&
+            this._precomputed.intervals === intervals &&
+            this._precomputed.totalRows === this.layout.totalRows &&
+            this._precomputed.totalCols === this.layout.totalCols;
     }
 
     /**
@@ -296,10 +407,11 @@ export class TwoToneVisualization {
             return;
         }
 
-        const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
-        const count = normalizedData.length;
+        const { rowCount, colCount, rowOffset, colOffset, columnIndices } = snapshot;
+        const count = rowCount * colCount;
+        const totalCols = this.layout.totalCols;
 
-        // Resize buffers if needed
+        // Resize output buffers if needed
         if (this._buffers.split.length < count) {
             this._buffers.split = new Float32Array(count);
         }
@@ -314,6 +426,56 @@ export class TwoToneVisualization {
         const color1Arr = this._buffers.color1.subarray(0, count * 4);
         const color2Arr = this._buffers.color2.subarray(0, count * 4);
 
+        // Ensure precomputed data is available with current settings
+        if (!this._hasValidPrecomputed(paletteCount, intervals)) {
+            this.precomputeFullDataset(paletteCount, intervals);
+        }
+
+        // Use precomputed data if available (fast path for scrolling)
+        if (this._precomputed.split && this._precomputed.color1 && this._precomputed.color2) {
+            const precomputedTotalCols = this._precomputed.totalCols;
+
+            // Copy sliced data from precomputed buffers
+            for (let r = 0; r < rowCount; r++) {
+                const globalRow = rowOffset + r;
+                for (let c = 0; c < colCount; c++) {
+                    const globalCol = columnIndices?.[c] ?? (colOffset + c);
+                    const srcIdx = globalRow * precomputedTotalCols + globalCol;
+                    const dstIdx = r * colCount + c;
+
+                    splitArr[dstIdx] = this._precomputed.split[srcIdx];
+
+                    // Copy colors and apply alpha for hidden cells
+                    const alpha = this._hiddenCellIndices.has(dstIdx) ? 0 : 1;
+                    const srcOffset = srcIdx * 4;
+                    const dstOffset = dstIdx * 4;
+
+                    color1Arr[dstOffset + 0] = this._precomputed.color1[srcOffset + 0];
+                    color1Arr[dstOffset + 1] = this._precomputed.color1[srcOffset + 1];
+                    color1Arr[dstOffset + 2] = this._precomputed.color1[srcOffset + 2];
+                    color1Arr[dstOffset + 3] = alpha;
+
+                    color2Arr[dstOffset + 0] = this._precomputed.color2[srcOffset + 0];
+                    color2Arr[dstOffset + 1] = this._precomputed.color2[srcOffset + 1];
+                    color2Arr[dstOffset + 2] = this._precomputed.color2[srcOffset + 2];
+                    color2Arr[dstOffset + 3] = alpha;
+                }
+            }
+        } else {
+            // Fallback: compute on the fly (for dynamic or unavailable precomputed data)
+            this._renderDataFallback(snapshot, paletteCount, intervals, splitArr, color1Arr, color2Arr);
+        }
+
+        this.basePlane.thinInstanceSetBuffer("split", splitArr, 1);
+        this.basePlane.thinInstanceSetBuffer("splitColor1", color1Arr, 4);
+        this.basePlane.thinInstanceSetBuffer("splitColor2", color2Arr, 4);
+    }
+
+    /**
+     * Fallback method for computing colors on-the-fly when precomputed data is unavailable
+     */
+    _renderDataFallback(snapshot, paletteCount, intervals, splitArr, color1Arr, color2Arr) {
+        const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
         const neutralColor = [1, 1, 1];
         const paletteListRaw = this.config.colorList.slice(0, Math.max(1, paletteCount ?? this.config.colorList.length));
         const paletteList = paletteListRaw.length ? paletteListRaw : this.config.colorList;
@@ -348,7 +510,7 @@ export class TwoToneVisualization {
                 }
                 case "categorical": {
                     const palette = paletteList[globalCol % paletteList.length] ?? neutralColor;
-                    const categoryIndex = meta.categories.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
+                    const categoryIndex = meta.categories?.length > 1 ? Math.round(value * (meta.categories.length - 1)) : 0;
                     const picked = palette[categoryIndex % palette.length] ?? neutralColor;
                     colorOne = picked;
                     colorTwo = picked;
@@ -376,10 +538,6 @@ export class TwoToneVisualization {
             color2Arr[offset + 2] = (colorTwo[2] ?? neutralColor[2]) / 255;
             color2Arr[offset + 3] = alpha;
         }
-
-        this.basePlane.thinInstanceSetBuffer("split", splitArr, 1);
-        this.basePlane.thinInstanceSetBuffer("splitColor1", color1Arr, 4);
-        this.basePlane.thinInstanceSetBuffer("splitColor2", color2Arr, 4);
     }
 
     _clearInstances() {

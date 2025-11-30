@@ -81,6 +81,13 @@ export class HeatMapVisualization {
 
         this._colorBuffer = new Float32Array(0);
 
+        // Precomputed color buffer for entire dataset (computed once, sliced during scroll)
+        this._precomputed = {
+            colors: null,
+            totalRows: 0,
+            totalCols: 0
+        };
+
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
@@ -194,20 +201,135 @@ export class HeatMapVisualization {
         this.basePlane.thinInstanceSetBuffer("matrix", snapshot.positionMatrix, 16);
     }
 
+    /**
+     * Precompute HeatMap colors for the entire dataset.
+     * Call this once after data load; during scroll, slices of precomputed buffers are used.
+     */
+    precomputeFullDataset() {
+        const totalRows = this.layout.totalRows;
+        const totalCols = this.layout.totalCols;
+        const precomputedData = this.layout.getPrecomputedNormalizedData?.();
+
+        if (!precomputedData || totalRows === 0 || totalCols === 0) {
+            this._precomputed.colors = null;
+            return;
+        }
+
+        const totalCount = totalRows * totalCols;
+        this._precomputed.colors = new Float32Array(totalCount * 4);
+        this._precomputed.totalRows = totalRows;
+        this._precomputed.totalCols = totalCols;
+
+        const neutralColor = [0.5, 0.5, 0.5];
+        const colorsArr = this._precomputed.colors;
+
+        // Pre-cache column metadata
+        const colMeta = this.layout.columnKeys.map(key => this.layout.columnMetadata[key]);
+
+        for (let idx = 0; idx < totalCount; idx++) {
+            const value = precomputedData[idx];
+            const colIndex = idx % totalCols;
+            const meta = colMeta[colIndex];
+            const globalColIndex = colIndex;
+
+            let r = neutralColor[0];
+            let g = neutralColor[1];
+            let b = neutralColor[2];
+
+            switch (meta?.type) {
+                case "numeric":
+                case "date": {
+                    const mapped = this.config.getNumericColor(value, globalColIndex) ?? neutralColor;
+                    r = mapped[0];
+                    g = mapped[1];
+                    b = mapped[2];
+                    break;
+                }
+                case "categorical": {
+                    const categoryCount = meta.categories?.length ?? 0;
+                    const mapped = this.config.getCategoryColor(value, globalColIndex, categoryCount) ?? neutralColor;
+                    r = mapped[0];
+                    g = mapped[1];
+                    b = mapped[2];
+                    break;
+                }
+                case "constant":
+                default:
+                    break;
+            }
+
+            const offset = idx * 4;
+            colorsArr[offset + 0] = r;
+            colorsArr[offset + 1] = g;
+            colorsArr[offset + 2] = b;
+            colorsArr[offset + 3] = 1; // Alpha set during render based on hidden cells
+        }
+    }
+
+    /**
+     * Check if precomputed data is valid
+     */
+    _hasValidPrecomputed() {
+        return this._precomputed.colors !== null &&
+            this._precomputed.totalRows === this.layout.totalRows &&
+            this._precomputed.totalCols === this.layout.totalCols;
+    }
+
     renderData(snapshot = this.layout.getVisibleSnapshot()) {
         if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
             this._clearInstances();
             return;
         }
 
-        const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
-        const requiredSize = normalizedData.length * 4;
+        const { rowCount, colCount, rowOffset, colOffset, columnIndices } = snapshot;
+        const count = rowCount * colCount;
+        const requiredSize = count * 4;
 
         if (this._colorBuffer.length < requiredSize) {
             this._colorBuffer = new Float32Array(requiredSize);
         }
         const colorsArr = this._colorBuffer.subarray(0, requiredSize);
 
+        // Ensure precomputed data is available
+        if (!this._hasValidPrecomputed()) {
+            this.precomputeFullDataset();
+        }
+
+        // Use precomputed data if available (fast path for scrolling)
+        if (this._precomputed.colors) {
+            const precomputedTotalCols = this._precomputed.totalCols;
+
+            // Copy sliced data from precomputed buffer
+            for (let r = 0; r < rowCount; r++) {
+                const globalRow = rowOffset + r;
+                for (let c = 0; c < colCount; c++) {
+                    const globalCol = columnIndices?.[c] ?? (colOffset + c);
+                    const srcIdx = globalRow * precomputedTotalCols + globalCol;
+                    const dstIdx = r * colCount + c;
+
+                    const srcOffset = srcIdx * 4;
+                    const dstOffset = dstIdx * 4;
+
+                    colorsArr[dstOffset + 0] = this._precomputed.colors[srcOffset + 0];
+                    colorsArr[dstOffset + 1] = this._precomputed.colors[srcOffset + 1];
+                    colorsArr[dstOffset + 2] = this._precomputed.colors[srcOffset + 2];
+                    // Apply alpha for hidden cells
+                    colorsArr[dstOffset + 3] = this._hiddenCellIndices.has(dstIdx) ? 0 : 1;
+                }
+            }
+        } else {
+            // Fallback: compute on the fly
+            this._renderDataFallback(snapshot, colorsArr);
+        }
+
+        this.basePlane.thinInstanceSetBuffer("color", colorsArr, 4);
+    }
+
+    /**
+     * Fallback method for computing colors on-the-fly when precomputed data is unavailable
+     */
+    _renderDataFallback(snapshot, colorsArr) {
+        const { normalizedData, columnKeys, columnIndices, colCount } = snapshot;
         const neutralColor = [0.5, 0.5, 0.5];
 
         // Pre-calculate column metadata and global indices
@@ -258,8 +380,6 @@ export class HeatMapVisualization {
             // Set alpha to 0 for hidden cells
             colorsArr[offset + 3] = this._hiddenCellIndices.has(idx) ? 0 : 1;
         }
-
-        this.basePlane.thinInstanceSetBuffer("color", colorsArr, 4);
     }
 
     _clearInstances() {
