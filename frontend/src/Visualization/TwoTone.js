@@ -15,10 +15,24 @@ export const twoToneConfig = {
         const P = orig.length;
 
         // build a small palette of (intervals + 1) stops evenly spaced
+        // by interpolating between palette colors to keep progression consistent
         const stops = [];
+        const sampleAt = (t) => {
+            if (P <= 1) return orig[0] ?? [0, 0, 0];
+            const scaled = t * (P - 1);
+            const i = Math.min(P - 2, Math.max(0, Math.floor(scaled)));
+            const f = scaled - i;
+            const c1 = orig[i];
+            const c2 = orig[i + 1] ?? orig[i];
+            return [
+                (c1[0] ?? 0) + ((c2[0] ?? 0) - (c1[0] ?? 0)) * f,
+                (c1[1] ?? 0) + ((c2[1] ?? 0) - (c1[1] ?? 0)) * f,
+                (c1[2] ?? 0) + ((c2[2] ?? 0) - (c1[2] ?? 0)) * f
+            ];
+        };
         for (let j = 0; j <= intervals; j++) {
-            const idx = Math.round(j * (P - 1) / intervals);
-            stops.push(orig[idx]);
+            const tStop = intervals > 0 ? (j / intervals) : 0;
+            stops.push(sampleAt(tStop));
         }
         const scaled = (v - minValue) / (maxValue - minValue) * intervals;
         let i = Math.floor(scaled);

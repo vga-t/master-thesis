@@ -9,12 +9,15 @@ import LCVDSLayout from "./LCVDSLayout.js";
 
 // Initial layout parameters (can be changed via 3D sliders)
 let currentLayoutParams = {
-    radius: 6,
-    arcAngle: 180, // in degrees
-    height: 5
+    radius: 30,
+    arcAngle: 150, // in degrees
+    height: 20
 };
 
-const BACKEND_URL = "http://localhost:8000";
+// const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+
+
 
 // Initialize Scene
 const sceneManager = new SceneManager("renderCanvas", currentLayoutParams.radius);
@@ -29,6 +32,10 @@ let twoTone;
 let columnHeaders;
 let interaction;
 let currentVis;
+let twoTonePaletteCount = 6;
+let twoToneIntervals = 6;
+const MIN_TWOTONE_INTERVALS = 1;
+const MAX_TWOTONE_INTERVALS = Math.max(1, (twoToneConfig.colorList?.[0]?.length ?? 2) - 1);
 
 
 // Audio Manager
@@ -69,7 +76,7 @@ async function initVisualization(csvData) {
         radius: currentLayoutParams.radius,
         height: currentLayoutParams.height,
         groundOffset: 0.1,
-        viewportRows: Math.min(csvData.length || 1, 150),
+        viewportRows: Math.min(csvData.length || 1, 300),
         viewportCols: Math.min(columnCount || 1, 30)
     });
     console.log("No of rows:", csvData.length);
@@ -86,7 +93,7 @@ async function initVisualization(csvData) {
     heatMap.basePlane.isVisible = false;
 
     currentVis = twoTone;
-    currentVis.render(6, 6);
+    currentVis.render(twoTonePaletteCount, twoToneIntervals);
     currentVis.basePlane.isVisible = true;
 
     // Interaction with layout change callback
@@ -134,6 +141,22 @@ await initVisualization(initialData);
 // Event Listeners
 document.addEventListener("keypress", event => {
     switch (event.key) {
+        case "9":
+            if (twoToneIntervals > MIN_TWOTONE_INTERVALS) {
+                twoToneIntervals -= 1;
+                if (twoTone) {
+                    twoTone.render(twoTonePaletteCount, twoToneIntervals);
+                }
+            }
+            break;
+        case "0":
+            if (twoToneIntervals < MAX_TWOTONE_INTERVALS) {
+                twoToneIntervals += 1;
+                if (twoTone) {
+                    twoTone.render(twoTonePaletteCount, twoToneIntervals);
+                }
+            }
+            break;
         case "2":
             if (currentVis != heatMap) {
                 if (currentVis.mesh) currentVis.mesh.isVisible = false;
