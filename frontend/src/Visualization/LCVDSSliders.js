@@ -120,7 +120,7 @@ class LCVDSSliders {
         const sliderGroup = new BABYLON.TransformNode(`slider_${key}`, this.scene);
         sliderGroup.parent = this.sliderContainer;
         sliderGroup.position.y = yOffset;
-        sliderGroup.position.z = 0.02; // In front of minimap (towards the user)
+        sliderGroup.position.z = -0.02; // In front of minimap (towards the user)
 
         // Create track (background bar)
         const track = BABYLON.MeshBuilder.CreateBox(`sliderTrack_${key}`, {
@@ -146,7 +146,7 @@ class LCVDSSliders {
             depth: SLIDER_DEPTH * 0.5
         }, this.scene);
         fill.parent = sliderGroup;
-        fill.position.z = SLIDER_DEPTH * 0.3; // In front of track
+        fill.position.z = -(SLIDER_DEPTH * 0.3); // In front of track (towards user)
         fill.isPickable = false;
 
         const fillMat = new BABYLON.StandardMaterial(`sliderFillMat_${key}`, this.scene);
@@ -162,7 +162,7 @@ class LCVDSSliders {
             segments: 12
         }, this.scene);
         handle.parent = sliderGroup;
-        handle.position.z = SLIDER_DEPTH + 0.008; // In front of track (towards user)
+        handle.position.z = -(SLIDER_DEPTH + 0.008); // In front of track (towards user)
         handle.isPickable = true;
         handle.metadata = { lcvdsSlider: true, kind: "handle", sliderKey: key };
 
@@ -204,8 +204,7 @@ class LCVDSSliders {
         }, this.scene);
         labelPlane.parent = parent;
         labelPlane.position.x = -SLIDER_WIDTH / 2 - planeWidth / 2 - 0.01;
-        labelPlane.position.z = 0.005; // In front of slider
-        labelPlane.rotation.y = Math.PI; // Rotate 180° to face the user
+        labelPlane.position.z = -0.005; // In front of slider (towards user)
         labelPlane.isPickable = false;
 
         // Create dynamic texture for label
@@ -247,8 +246,7 @@ class LCVDSSliders {
         }, this.scene);
         valuePlane.parent = parent;
         valuePlane.position.x = SLIDER_WIDTH / 2 + planeWidth / 2 + 0.01;
-        valuePlane.position.z = 0.005; // In front of slider
-        valuePlane.rotation.y = Math.PI; // Rotate 180° to face the user
+        valuePlane.position.z = -0.005; // In front of slider (towards user)
         valuePlane.isPickable = false;
 
         // Create dynamic texture for value display
@@ -308,14 +306,14 @@ class LCVDSSliders {
         const normalized = (value - config.min) / (config.max - config.min);
         const clampedNorm = Math.max(0, Math.min(1, normalized));
 
-        // Update handle position (reversed: min on right, max on left)
-        const handleX = (0.5 - clampedNorm) * SLIDER_WIDTH;
+        // Update handle position (min on left, max on right)
+        const handleX = (clampedNorm - 0.5) * SLIDER_WIDTH;
         slider.handle.position.x = handleX;
 
-        // Update fill bar (scale and position from right edge)
+        // Update fill bar (scale and position from left edge)
         const fillWidth = clampedNorm * SLIDER_WIDTH;
         slider.fill.scaling.x = Math.max(0.001, clampedNorm); // Avoid 0 scale
-        slider.fill.position.x = SLIDER_WIDTH / 2 - fillWidth / 2;
+        slider.fill.position.x = -SLIDER_WIDTH / 2 + fillWidth / 2;
 
         // Update value display
         this._updateValueDisplay(key);
@@ -389,9 +387,9 @@ class LCVDSSliders {
         const deltaX = localPos.x - this._dragStartLocalX;
         const config = SLIDER_CONFIGS[this._activeSlider];
 
-        // Convert deltaX to value change (reversed direction)
+        // Convert deltaX to value change
         const valueRange = config.max - config.min;
-        const deltaValue = -(deltaX / SLIDER_WIDTH) * valueRange;
+        const deltaValue = (deltaX / SLIDER_WIDTH) * valueRange;
 
         let newValue = this._dragStartValue + deltaValue;
         newValue = Math.max(config.min, Math.min(config.max, newValue));
@@ -444,9 +442,9 @@ class LCVDSSliders {
         const config = SLIDER_CONFIGS[sliderKey];
         const sliderGroup = this.sliders[sliderKey].group;
 
-        // Calculate relative X within slider (reversed direction)
+        // Calculate relative X within slider
         const localSliderX = localPos.x - sliderGroup.position.x;
-        const normalized = 0.5 - (localSliderX / SLIDER_WIDTH);
+        const normalized = 0.5 + (localSliderX / SLIDER_WIDTH);
         const clamped = Math.max(0, Math.min(1, normalized));
 
         const newValue = config.min + clamped * (config.max - config.min);

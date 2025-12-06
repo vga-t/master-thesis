@@ -1049,8 +1049,7 @@ class MinimapVisualization {
 
     setForward(direction) {
         if (!direction) return;
-        // Flip the direction vector to rotate the minimap 180 degrees
-        const forward = direction.clone().scale(-1);
+        const forward = direction.clone();
         if (forward.lengthSquared() < 1e-6) forward.copyFrom(BABYLON.Axis.Z);
         forward.normalize();
         const up = BABYLON.Axis.Y.clone();
@@ -1100,8 +1099,7 @@ class MinimapVisualization {
         const maxColOffset = Math.max(0, scrollState.maxColOffset ?? totalCols - visibleCols);
 
         const rowNorm = maxRowOffset > 0 ? (scrollState.rowOffset ?? 0) / maxRowOffset : 0;
-        // const colNorm = maxColOffset > 0 ? (scrollState.colOffset ?? 0) / maxColOffset : 0;
-        const colNorm = maxColOffset > 0 ? (maxColOffset - (scrollState.colOffset ?? 0)) / maxColOffset : 0;
+        const colNorm = maxColOffset > 0 ? (scrollState.colOffset ?? 0) / maxColOffset : 0;
 
         const halfWidth = this._width / 2;
         const halfHeight = this._height / 2;
@@ -1113,7 +1111,7 @@ class MinimapVisualization {
 
         this.viewportMesh.position.x = centerX;
         this.viewportMesh.position.y = centerY;
-        this.viewportMesh.position.z = 0.003;
+        this.viewportMesh.position.z = -0.003;
 
         // Position viewport handles at corners of viewport
         this._updateViewportHandlePositions(centerX, centerY, viewportWidth, viewportHeight);
@@ -1133,7 +1131,7 @@ class MinimapVisualization {
             const { signX, signY } = handle.metadata;
             handle.position.x = centerX + signX * halfVpWidth;
             handle.position.y = centerY + signY * halfVpHeight;
-            handle.position.z = 0.005;
+            handle.position.z = -0.005;
         });
     }
 
@@ -1181,7 +1179,7 @@ class MinimapVisualization {
         this.viewportMesh.scaling.y = newVpHeight;
         this.viewportMesh.position.x = clampedCenterX;
         this.viewportMesh.position.y = clampedCenterY;
-        this.viewportMesh.position.z = 0.003;
+        this.viewportMesh.position.z = -0.003;
 
         this._updateViewportHandlePositions(clampedCenterX, clampedCenterY, newVpWidth, newVpHeight);
 
@@ -1200,7 +1198,7 @@ class MinimapVisualization {
         const maxColOffset = Math.max(0, totalCols - newVisibleCols);
 
         const newRowOffset = Math.round(Math.max(0, Math.min(1, rowNorm)) * maxRowOffset);
-        const newColOffset = Math.round((1 - Math.max(0, Math.min(1, colNorm))) * maxColOffset);
+        const newColOffset = Math.round(Math.max(0, Math.min(1, colNorm)) * maxColOffset);
 
         return {
             visibleRows: newVisibleRows,
@@ -1314,15 +1312,15 @@ class MinimapVisualization {
             const { signX, signY } = handle.metadata;
             handle.position.x = signX * this._width / 2;
             handle.position.y = signY * this._height / 2;
-            handle.position.z = 0.002;
+            handle.position.z = -0.002;
         });
-        this.viewportMesh.position.z = 0.003;
+        this.viewportMesh.position.z = -0.003;
 
         // Position detach handle at top edge center, slightly above the plane
         if (this.detachHandle) {
             this.detachHandle.position.x = 0;
             this.detachHandle.position.y = this._height / 2 + DETACH_HANDLE_HEIGHT / 2 + 0.005;
-            this.detachHandle.position.z = 0.002;
+            this.detachHandle.position.z = -0.002;
         }
     }
 
@@ -1490,9 +1488,7 @@ class MinimapVisualization {
                 if (n < 0) n = 0;
                 if (n > 1) n = 1;
 
-                // Green color gradient (black to green)
-                const g = Math.floor(n * 255);
-
+                const g = Math.floor((1 - n) * 255);
                 const idx = (y * texWidth + x) * 4;
                 buffer[idx] = 0;     // R
                 buffer[idx + 1] = g; // G
@@ -1508,7 +1504,7 @@ class MinimapVisualization {
             BABYLON.Engine.TEXTUREFORMAT_RGBA,
             this.scene,
             true, // generateMipMaps
-            false, // invertY
+            true, // invertY
             BABYLON.Texture.TRILINEAR_SAMPLINGMODE
         );
 
