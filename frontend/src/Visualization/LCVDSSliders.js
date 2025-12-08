@@ -29,7 +29,7 @@ const LABEL_HEIGHT = 0.018;
 const SLIDER_CONFIGS = {
     arcAngle: {
         label: "Arc Angle",
-        min: 30,
+        min: 10,
         max: 360,
         default: 180,
         unit: "°",
@@ -39,7 +39,7 @@ const SLIDER_CONFIGS = {
     radius: {
         label: "Radius",
         min: 2,
-        max: 1500,
+        max: 30,
         default: 6,
         unit: "m",
         color: new BABYLON.Color3(0.3, 0.9, 0.4),     // Green
@@ -48,7 +48,7 @@ const SLIDER_CONFIGS = {
     height: {
         label: "Height",
         min: 1,
-        max: 50,
+        max: 30,
         default: 5,
         unit: "m",
         color: new BABYLON.Color3(1.0, 0.6, 0.2),     // Orange
@@ -113,6 +113,9 @@ class LCVDSSliders {
 
             const slider = this._createSingleSlider(key, config, yOffset);
             this.sliders[key] = slider;
+
+            // Apply initial handle/fill/value text once the slider is registered.
+            this._updateSliderVisual(key);
         });
     }
 
@@ -178,9 +181,6 @@ class LCVDSSliders {
 
         // Create value display
         const valuePlane = this._createValuePlane(key, sliderGroup);
-
-        // Update visual positions based on current value
-        this._updateSliderVisual(key);
 
         return {
             group: sliderGroup,

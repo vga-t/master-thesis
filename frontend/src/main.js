@@ -9,9 +9,9 @@ import LCVDSLayout from "./LCVDSLayout.js";
 
 // Initial layout parameters (can be changed via 3D sliders)
 let currentLayoutParams = {
-    radius: 30,
-    arcAngle: 150, // in degrees
-    height: 20
+    radius: 10,
+    arcAngle: 120, // in degrees
+    height: 5
 };
 
 // const BACKEND_URL = "http://localhost:8000";
@@ -76,8 +76,8 @@ async function initVisualization(csvData) {
         radius: currentLayoutParams.radius,
         height: currentLayoutParams.height,
         groundOffset: 0.1,
-        viewportRows: Math.min(csvData.length || 1, 300),
-        viewportCols: Math.min(columnCount || 1, 30)
+        viewportRows: Math.min(csvData.length || 1, 200),
+        viewportCols: Math.min(columnCount || 1, 50)
     });
     console.log("No of rows:", csvData.length);
     console.log("No of columns:", Object.keys(csvData[0]).length);

@@ -43,8 +43,7 @@ export class InteractionManager {
 
         // Docking zone parameters - distance threshold to re-dock minimap to wrist
         this._dockDistanceThreshold = 0.15; // meters - how close to wrist to trigger docking
-        this._dockZoneIndicator = null; // Visual indicator for dock zone
-        this._showDockZoneWhenFloating = true;
+
 
         // LCVDS Layout Sliders - anchored to minimap
         // Callback to handle layout parameter changes
@@ -594,8 +593,6 @@ export class InteractionManager {
             this._checkAndDockMinimap();
         }
         this._minimapInteraction = null;
-        // Hide dock zone indicator
-        this._updateDockZoneIndicator(false);
     }
 
     _checkAndDockMinimap() {
@@ -650,10 +647,6 @@ export class InteractionManager {
             if (grip?.getAbsolutePosition) {
                 const desiredPos = grip.getAbsolutePosition().add(state.offset);
                 this.minimap.setRootPosition(desiredPos);
-
-                // Show dock zone indicator and check proximity to wrist
-                this._updateDockZoneIndicator(true);
-                this._checkDockProximity(desiredPos);
             }
             return;
         }
@@ -681,75 +674,6 @@ export class InteractionManager {
             const result = this.minimap.resizeViewportFromHandle(state.handle, localPoint, state.anchorLocal);
             if (result) {
                 this._applyViewportResize(result);
-            }
-        }
-    }
-
-    _checkDockProximity(minimapPos) {
-        if (!this._leftController) return;
-
-        const pose = this._getControllerPose(this._leftController);
-        if (!pose) return;
-
-        const wristDockPos = pose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, pose));
-        const distance = BABYLON.Vector3.Distance(minimapPos, wristDockPos);
-
-        // Provide visual feedback when close to dock zone
-        const isNearDock = distance <= this._dockDistanceThreshold * 1.5;
-        const isInDockZone = distance <= this._dockDistanceThreshold;
-
-        // Update dock zone indicator color based on proximity
-        if (this._dockZoneIndicator) {
-            if (isInDockZone) {
-                this._dockZoneIndicator.material.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3); // Green - will dock
-                this._dockZoneIndicator.material.emissiveColor = new BABYLON.Color3(0.1, 0.45, 0.15);
-            } else if (isNearDock) {
-                this._dockZoneIndicator.material.diffuseColor = new BABYLON.Color3(0.9, 0.8, 0.2); // Yellow - approaching
-                this._dockZoneIndicator.material.emissiveColor = new BABYLON.Color3(0.45, 0.4, 0.1);
-            } else {
-                this._dockZoneIndicator.material.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.9); // Cyan - default
-                this._dockZoneIndicator.material.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.45);
-            }
-        }
-    }
-
-    _updateDockZoneIndicator(show) {
-        if (!this._leftController || !this.minimap) return;
-
-        const pose = this._getControllerPose(this._leftController);
-        if (!pose && show) return;
-
-        if (show && !this.minimap.isDocked()) {
-            // Create dock zone indicator if needed
-            if (!this._dockZoneIndicator) {
-                this._dockZoneIndicator = BABYLON.MeshBuilder.CreateTorus("dockZoneIndicator", {
-                    diameter: this._dockDistanceThreshold * 2,
-                    thickness: 0.008,
-                    tessellation: 32
-                }, this.scene);
-                this._dockZoneIndicator.isPickable = false;
-                const mat = new BABYLON.StandardMaterial("dockZoneMat", this.scene);
-                mat.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.9);
-                mat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.45);
-                mat.alpha = 0.6;
-                mat.disableLighting = true;
-                mat.backFaceCulling = false;
-                this._dockZoneIndicator.material = mat;
-            }
-
-            // Position at wrist dock location
-            if (pose) {
-                const dockPos = pose.position.add(this._offsetFromBasis(this._minimapAnchorOffsetLocal, pose));
-                this._dockZoneIndicator.position.copyFrom(dockPos);
-                // Orient to face outward from wrist
-                const forward = pose.forward.clone().scale(-1);
-                this._dockZoneIndicator.lookAt(dockPos.add(forward));
-            }
-            this._dockZoneIndicator.setEnabled(true);
-        } else {
-            // Hide dock zone indicator
-            if (this._dockZoneIndicator) {
-                this._dockZoneIndicator.setEnabled(false);
             }
         }
     }
@@ -955,10 +879,6 @@ export class InteractionManager {
         }
         if (this.minimap) {
             this.minimap.dispose();
-        }
-        if (this._dockZoneIndicator) {
-            this._dockZoneIndicator.dispose();
-            this._dockZoneIndicator = null;
         }
         if (this._rightTriggerClickTimer) {
             clearTimeout(this._rightTriggerClickTimer);

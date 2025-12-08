@@ -23,7 +23,7 @@ class SceneManager {
         this.camera.attachControl(this.canvas, true);
         // this.camera.position = new BABYLON.Vector3(0.6, 0.5, -5.5);
         // this.camera.setTarget(new BABYLON.Vector3(-1.0, 5.1, 13.9));
-        this.camera.position = new BABYLON.Vector3(0, 1.6, -2.0 * this.radius);
+        this.camera.position = new BABYLON.Vector3(0, 1.6, - this.radius);
         this.camera.setTarget = new BABYLON.Vector3(0, 3.0, 0);
         this.camera.rotation = new BABYLON.Vector3(-0.1, 0, 0.0);
 
