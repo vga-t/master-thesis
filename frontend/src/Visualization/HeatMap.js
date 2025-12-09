@@ -88,6 +88,9 @@ export class HeatMapVisualization {
             totalCols: 0
         };
 
+        // Dirty flag: when invisible updates are skipped, this stores the pending changeType
+        this._dirtyChangeType = null;
+
         this._removeObserver = this.layout.addObserver((snapshot, changeType = "geometry_and_data") =>
             this._handleLayoutUpdate(snapshot, changeType)
         );
@@ -126,9 +129,30 @@ export class HeatMapVisualization {
         material.backFaceCulling = false;
     }
 
+    /**
+     * Call when this visualization becomes visible after being hidden.
+     * Replays any skipped layout updates.
+     */
+    catchUp() {
+        if (!this._dirtyChangeType) return;
+        const changeType = this._dirtyChangeType;
+        this._dirtyChangeType = null;
+        const snapshot = this.layout.getVisibleSnapshot();
+        if (snapshot) this._handleLayoutUpdate(snapshot, changeType);
+    }
+
     _handleLayoutUpdate(snapshot, changeType = "geometry_and_data") {
         if (!snapshot || snapshot.rowCount === 0 || snapshot.colCount === 0) {
             this._clearInstances();
+            return;
+        }
+
+        // Skip expensive work when not visible; remember the most significant pending change
+        if (!this.basePlane.isVisible) {
+            // Escalate: geometry_and_data > cell_size_changed > data_only
+            if (!this._dirtyChangeType || changeType === "geometry_and_data" || changeType === "cell_size_changed") {
+                this._dirtyChangeType = changeType;
+            }
             return;
         }
 

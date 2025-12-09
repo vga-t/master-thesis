@@ -102,9 +102,10 @@ export class InteractionManager {
         this._lastViewportResizeTime = 0;
         this._viewportResizeThrottleMs = 32; // ~30fps limit for heavy layout updates
 
-        // Lazy update system for viewport resize/zoom operations
+        // Lazy update system for viewport resize/zoom and drag operations
         this._pendingViewportUpdate = null;
-        this._viewportUpdateDebounceMs = 100; // Debounce layout updates during resize
+        this._pendingScrollUpdate = null;
+        this._viewportUpdateDebounceMs = 100; // Debounce layout updates during resize/drag
         this._viewportUpdateTimer = null;
 
         this._setupVRControllers();
@@ -570,7 +571,6 @@ export class InteractionManager {
             const local = this.minimap.worldToLocal(pickInfo.pickedPoint);
             this._minimapInteraction = { type: "viewport", controller };
             const normalized = this.minimap.normalizeLocalPoint(local);
-            this.minimap.previewViewportFromNormalized(normalized.row, normalized.col);
             this._applyViewportDrag(normalized);
         }
         return !!this._minimapInteraction;
@@ -668,7 +668,6 @@ export class InteractionManager {
             }
         } else if (state.type === "viewport") {
             const normalized = this.minimap.normalizeLocalPoint(localPoint);
-            this.minimap.previewViewportFromNormalized(normalized.row, normalized.col);
             this._applyViewportDrag(normalized);
         } else if (state.type === "viewportResize") {
             const result = this.minimap.resizeViewportFromHandle(state.handle, localPoint, state.anchorLocal);
@@ -713,23 +712,20 @@ export class InteractionManager {
             this._viewportUpdateTimer = null;
         }
 
-        if (!this._pendingViewportUpdate) return;
-
-        const { visibleRows, visibleCols, rowOffset, colOffset } = this._pendingViewportUpdate;
+        const pendingResize = this._pendingViewportUpdate;
+        const pendingScroll = this._pendingScrollUpdate;
         this._pendingViewportUpdate = null;
+        this._pendingScrollUpdate = null;
 
-        // Apply the new visible viewport size and scroll offsets in one go
-        // This prevents double updates (one for size, one for scroll)
-        this.layout.setVisibleViewport(visibleRows, visibleCols, rowOffset, colOffset);
+        if (pendingResize) {
+            const { visibleRows, visibleCols, rowOffset, colOffset } = pendingResize;
+            this.layout.setVisibleViewport(visibleRows, visibleCols, rowOffset, colOffset);
+        } else if (pendingScroll) {
+            this.layout.setScrollOffsets(pendingScroll.rowOffset, pendingScroll.colOffset);
+        }
     }
 
     _applyViewportDrag(normalized) {
-        const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-        if (now - this._lastViewportResizeTime < this._viewportResizeThrottleMs) {
-            return;
-        }
-        this._lastViewportResizeTime = now;
-
         const scrollState = this.layout.getScrollState();
         const maxRow = Math.max(0, scrollState.maxRowOffset ?? 0);
         const maxCol = Math.max(0, scrollState.maxColOffset ?? 0);
@@ -742,7 +738,22 @@ export class InteractionManager {
 
         const targetRow = maxRow > 0 ? Math.round(adjustedRowNorm * maxRow) : 0;
         const targetCol = maxCol > 0 ? Math.round(adjustedColNorm * maxCol) : 0;
-        this.layout.setScrollOffsets(targetRow, targetCol);
+
+        // Preview the viewport at the actual snapped position (matches where the
+        // scroll will land) so there is no jump when the user releases.
+        const effectiveRowNorm = maxRow > 0 ? targetRow / maxRow : 0;
+        const effectiveColNorm = maxCol > 0 ? targetCol / maxCol : 0;
+        this.minimap.previewViewportFromNormalized(effectiveRowNorm, effectiveColNorm);
+
+        // Store pending scroll and debounce the heavy layout update
+        this._pendingScrollUpdate = { rowOffset: targetRow, colOffset: targetCol };
+
+        if (this._viewportUpdateTimer) {
+            clearTimeout(this._viewportUpdateTimer);
+        }
+        this._viewportUpdateTimer = setTimeout(() => {
+            this._flushPendingViewportUpdate();
+        }, this._viewportUpdateDebounceMs);
     }
 
     _adjustViewportSensitivity(value, factor) {

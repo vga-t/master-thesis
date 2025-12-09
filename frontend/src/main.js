@@ -76,8 +76,8 @@ async function initVisualization(csvData) {
         radius: currentLayoutParams.radius,
         height: currentLayoutParams.height,
         groundOffset: 0.1,
-        viewportRows: Math.min(csvData.length || 1, 200),
-        viewportCols: Math.min(columnCount || 1, 50)
+        viewportRows: Math.min(csvData.length || 1, 350),
+        viewportCols: Math.min(columnCount || 1, 45)
     });
     console.log("No of rows:", csvData.length);
     console.log("No of columns:", Object.keys(csvData[0]).length);
@@ -163,6 +163,7 @@ document.addEventListener("keypress", event => {
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
                 currentVis = heatMap;
                 currentVis.basePlane.isVisible = true;
+                currentVis.catchUp();
                 interaction.setVisualizationMode("heatmap");
             }
             break;
@@ -172,6 +173,7 @@ document.addEventListener("keypress", event => {
                 if (currentVis.basePlane) currentVis.basePlane.isVisible = false;
                 currentVis = twoTone;
                 currentVis.basePlane.isVisible = true;
+                currentVis.catchUp();
                 interaction.setVisualizationMode("twotone");
             };
             break;

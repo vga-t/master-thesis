@@ -39,7 +39,7 @@ const SLIDER_CONFIGS = {
     radius: {
         label: "Radius",
         min: 2,
-        max: 30,
+        max: 100,
         default: 6,
         unit: "m",
         color: new BABYLON.Color3(0.3, 0.9, 0.4),     // Green
@@ -48,7 +48,7 @@ const SLIDER_CONFIGS = {
     height: {
         label: "Height",
         min: 1,
-        max: 30,
+        max: 50,
         default: 5,
         unit: "m",
         color: new BABYLON.Color3(1.0, 0.6, 0.2),     // Orange
