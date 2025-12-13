@@ -18,6 +18,7 @@ export default class FocusPlusContext {
         this._defaultCameraPose = this._captureCameraPose();
 
         this.focusBlock = null;
+        this._rowFocusBlocks = [];
         this._latestSnapshot = this.layout?.getVisibleSnapshot() ?? null;
 
         this._currentStroke = null;
@@ -89,6 +90,7 @@ export default class FocusPlusContext {
 
     clearFocus() {
         this.focusBlock = null;
+        this._rowFocusBlocks = [];
         this._cancelScheduledFocusApply();
         this.layout?.setRowFocusStrategy(null);
         this.layout?.setColumnFocusStrategy(null);
@@ -208,6 +210,7 @@ export default class FocusPlusContext {
         if (colSpan >= 2) {
             const range = this._rangeFromSnapshot(snapshot.columnIndices, stroke.minCol, stroke.maxCol);
             if (!range) return;
+            this._rowFocusBlocks = [];
             this.focusBlock = {
                 row: null,
                 col: range
@@ -215,11 +218,19 @@ export default class FocusPlusContext {
         } else {
             const range = this._rangeFromSnapshot(snapshot.rowIndices, stroke.minRow, stroke.maxRow);
             if (!range) return;
-            this.focusBlock = {
-                row: range,
-                col: null
-            };
 
+            if (this._rowFocusBlocks.length >= 2) {
+                // Third row swipe: clear all focuses
+                this._rowFocusBlocks = [];
+                this.focusBlock = { row: null, col: null };
+            } else {
+                // First or second row swipe: add focus region
+                this._rowFocusBlocks.push(range);
+                this.focusBlock = {
+                    row: range,
+                    col: null
+                };
+            }
         }
 
         this._cancelScheduledFocusApply();
@@ -227,24 +238,26 @@ export default class FocusPlusContext {
     }
 
     _applyFocusBlock() {
-        if (!this.focusBlock) {
+        if (!this.focusBlock && this._rowFocusBlocks.length === 0) {
             this.layout?.setRowFocusStrategy(null);
             this.layout?.setColumnFocusStrategy(null);
             return;
         }
 
-        if (this.focusBlock.row) {
-            this.layout?.setRowFocusStrategy({
-                start: this.focusBlock.row.start,
-                end: this.focusBlock.row.end,
-                focusShare: this._resolveRowShare(),
-                minContextShare: this.config.minRowContextShare
-            });
+        if (this._rowFocusBlocks.length > 0) {
+            this.layout?.setRowFocusStrategy(
+                this._rowFocusBlocks.map(block => ({
+                    start: block.start,
+                    end: block.end,
+                    focusShare: this._resolveRowShare(),
+                    minContextShare: this.config.minRowContextShare
+                }))
+            );
         } else {
             this.layout?.setRowFocusStrategy(null);
         }
 
-        if (this.focusBlock.col) {
+        if (this.focusBlock?.col) {
             this.layout?.setColumnFocusStrategy({
                 start: this.focusBlock.col.start,
                 end: this.focusBlock.col.end,

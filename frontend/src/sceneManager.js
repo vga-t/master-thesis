@@ -3,7 +3,7 @@ import * as BABYLON from "babylonjs";
 class SceneManager {
     constructor(canvasId, radius) {
         this.canvas = document.getElementById(canvasId);
-        this.engine = new BABYLON.Engine(this.canvas, true);
+        this.engine = new BABYLON.Engine(this.canvas, true, { xrCompatible: true });
         this.scene = new BABYLON.Scene(this.engine);
         this.light = null;
         this.camera = null;

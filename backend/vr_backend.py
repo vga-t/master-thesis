@@ -21,7 +21,7 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_CSV = BASE_DIR / "csv" / "climate.csv"
+DEFAULT_CSV = BASE_DIR / "csv" / "diamonds.csv"
 
 
 @app.get("/")

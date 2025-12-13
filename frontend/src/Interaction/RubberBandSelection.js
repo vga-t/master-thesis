@@ -92,21 +92,14 @@ export default class RubberBandSelection {
         const indices = this._indicesFromThinInstance(pick.thinInstanceIndex);
         if (!indices) return false;
 
-        const hitPoint = this._extractPickedPoint(pick);
         this._dragState = {
             controller,
             startIndices: indices,
-            lastIndices: indices,
-            startPoint: hitPoint,
-            lastPoint: hitPoint
+            lastIndices: indices
         };
         this._ensureRenderObserver();
-        const selection = this._computeSelection(indices, indices, {
-            startPoint: hitPoint,
-            endPoint: hitPoint,
-            preview: true
-        });
-        this._applyPreview(selection, { force: true, usePreviewGeometry: true });
+        const selection = this._computeSelection(indices, indices);
+        this._applyPreview(selection, { force: true });
         return true;
     }
 
@@ -240,19 +233,8 @@ export default class RubberBandSelection {
             const indices = this._indicesFromThinInstance(pick.thinInstanceIndex);
             if (!indices) return;
             this._dragState.lastIndices = indices;
-            const hitPoint = this._extractPickedPoint(pick);
-            if (hitPoint) {
-                this._dragState.lastPoint = hitPoint;
-                if (!this._dragState.startPoint) {
-                    this._dragState.startPoint = hitPoint.clone();
-                }
-            }
-            const selection = this._computeSelection(this._dragState.startIndices, indices, {
-                startPoint: this._dragState.startPoint,
-                endPoint: this._dragState.lastPoint,
-                preview: true
-            });
-            this._applyPreview(selection, { usePreviewGeometry: true });
+            const selection = this._computeSelection(this._dragState.startIndices, indices);
+            this._applyPreview(selection);
         });
     }
 
@@ -375,19 +357,6 @@ export default class RubberBandSelection {
         return new BABYLON.Ray(origin, direction, length);
     }
 
-    _extractPickedPoint(pickInfo) {
-        if (!pickInfo) return null;
-        if (pickInfo.pickedPoint) {
-            return pickInfo.pickedPoint.clone ? pickInfo.pickedPoint.clone() : pickInfo.pickedPoint;
-        }
-        const ray = pickInfo.ray;
-        if (!ray || !Number.isFinite(pickInfo.distance)) return null;
-        const dir = ray.direction.clone();
-        if (dir.lengthSquared() <= DOUBLE_EPSILON) return null;
-        dir.normalize();
-        return ray.origin.add(dir.scale(pickInfo.distance));
-    }
-
     _indicesFromThinInstance(idx) {
         const snapshot = this._latestSnapshot;
         if (!snapshot || snapshot.colCount <= 0 || snapshot.rowCount <= 0) return null;
@@ -405,7 +374,7 @@ export default class RubberBandSelection {
         };
     }
 
-    _computeSelection(startIndices, endIndices, { startPoint = null, endPoint = null, preview = false } = {}) {
+    _computeSelection(startIndices, endIndices) {
         if (!startIndices || !endIndices || !this._latestSnapshot) {
             return null;
         }
@@ -415,11 +384,8 @@ export default class RubberBandSelection {
         const colCount = snapshot.colCount ?? 0;
         if (rowCount <= 0 || colCount <= 0) return null;
 
-        const startContinuous = this._computeContinuousCoordinates(startIndices, startPoint);
-        const endContinuous = this._computeContinuousCoordinates(endIndices, endPoint);
-
-        const rowBounds = this._computeAxisBounds(startContinuous.row, endContinuous.row, rowCount);
-        const colBounds = this._computeAxisBounds(startContinuous.col, endContinuous.col, colCount);
+        const rowBounds = this._computeAxisBounds(startIndices.localRow, endIndices.localRow, rowCount);
+        const colBounds = this._computeAxisBounds(startIndices.localCol, endIndices.localCol, colCount);
 
         const rowRange = this._buildRangeFromBounds(rowBounds.localStart, rowBounds.localEnd, snapshot.rowIndices);
         const colRange = this._buildRangeFromBounds(colBounds.localStart, colBounds.localEnd, snapshot.columnIndices);
@@ -428,15 +394,10 @@ export default class RubberBandSelection {
         const geometry = this._buildSelectionGeometry(rowRange, colRange);
         if (!geometry) return null;
 
-        const previewGeometry = preview
-            ? this._buildPreviewGeometry(geometry, startPoint, endPoint)
-            : null;
-
         return {
             rowRange,
             colRange,
             geometry,
-            previewGeometry,
             anchor: geometry.center ?? null
         };
     }
@@ -507,12 +468,19 @@ export default class RubberBandSelection {
         const thinIndex = localRow * snapshot.colCount + localCol;
         const matrixOffset = thinIndex * 16;
         BABYLON.Matrix.FromArrayToRef(snapshot.positionMatrix, matrixOffset, this._tempMatrix);
-        const localCorner = CORNER_LUT[cornerKey];
-        if (!localCorner) return null;
+        const sign = CORNER_LUT[cornerKey];
+        if (!sign) return null;
+        const halfW = (snapshot.cellWidth ?? 1) / 2;
+        const halfH = (snapshot.cellHeight ?? 1) / 2;
+        const localCorner = new BABYLON.Vector3(
+            sign.x > 0 ? halfW : -halfW,
+            sign.y > 0 ? halfH : -halfH,
+            0
+        );
         return BABYLON.Vector3.TransformCoordinates(localCorner, this._tempMatrix);
     }
 
-    _applyPreview(selection, { force = false, usePreviewGeometry = false } = {}) {
+    _applyPreview(selection, { force = false } = {}) {
         if (!selection) {
             this._disableFill();
             if (this._outlineMesh) {
@@ -522,9 +490,7 @@ export default class RubberBandSelection {
             return;
         }
 
-        const geometry = usePreviewGeometry && selection.previewGeometry
-            ? selection.previewGeometry
-            : selection.geometry;
+        const geometry = selection.geometry;
         if (!geometry) {
             this._disableFill();
             if (this._outlineMesh) {
@@ -534,10 +500,7 @@ export default class RubberBandSelection {
             return;
         }
 
-        const previewTag = usePreviewGeometry && selection.previewGeometry?.previewRatios
-            ? `p:${selection.previewGeometry.previewRatios.topRatio?.toFixed(3)}:${selection.previewGeometry.previewRatios.bottomRatio?.toFixed(3)}`
-            : "f";
-        const hash = `${selection.rowRange.localStart}:${selection.rowRange.localEnd}:${selection.colRange.localStart}:${selection.colRange.localEnd}:${previewTag}`;
+        const hash = `${selection.rowRange.localStart}:${selection.rowRange.localEnd}:${selection.colRange.localStart}:${selection.colRange.localEnd}`;
         if (!force && this._lastPreviewHash === hash) {
             return;
         }
@@ -670,62 +633,12 @@ export default class RubberBandSelection {
         return Math.max(0, Math.min(length - 1, value));
     }
 
-    _computeContinuousCoordinates(indices, point) {
-        if (!indices) {
-            return { row: 0, col: 0 };
-        }
-        if (!point) {
-            return {
-                row: indices.localRow,
-                col: indices.localCol
-            };
-        }
-
-        const topLeft = this._getCorner(indices.localRow, indices.localCol, "topLeft");
-        const topRight = this._getCorner(indices.localRow, indices.localCol, "topRight");
-        const bottomLeft = this._getCorner(indices.localRow, indices.localCol, "bottomLeft");
-        if (!topLeft || !topRight || !bottomLeft) {
-            return {
-                row: indices.localRow,
-                col: indices.localCol
-            };
-        }
-
-        const widthVec = topRight.subtract(topLeft);
-        const heightVec = bottomLeft.subtract(topLeft);
-        const widthLen = widthVec.length();
-        const heightLen = heightVec.length();
-        const rel = point.subtract(topLeft);
-
-        const widthDir = widthLen > DOUBLE_EPSILON ? widthVec.scale(1 / widthLen) : null;
-        const heightDir = heightLen > DOUBLE_EPSILON ? heightVec.scale(1 / heightLen) : null;
-
-        const clamp01 = value => Math.max(0, Math.min(1, value));
-
-        const colFrac = widthDir ? clamp01(BABYLON.Vector3.Dot(rel, widthDir) / widthLen) : 0;
-        const rowFrac = heightDir ? clamp01(BABYLON.Vector3.Dot(rel, heightDir) / heightLen) : 0;
-
-        return {
-            row: indices.localRow + rowFrac,
-            col: indices.localCol + colFrac
-        };
-    }
-
     _computeAxisBounds(startValue, endValue, maxCount) {
-        const maxContinuous = Math.max(0, maxCount - 1e-4);
-        const clamp = value => Math.max(0, Math.min(maxContinuous, value));
-        const a = clamp(startValue);
-        const b = clamp(endValue);
-        const minVal = Math.min(a, b);
-        const maxVal = Math.max(a, b);
-        const localStart = Math.floor(minVal);
-        const localEnd = Math.max(localStart, Math.floor(maxVal));
-        return {
-            localStart,
-            localEnd,
-            minValue: minVal,
-            maxValue: maxVal
-        };
+        const a = Math.max(0, Math.min(maxCount - 1, startValue));
+        const b = Math.max(0, Math.min(maxCount - 1, endValue));
+        const localStart = Math.min(a, b);
+        const localEnd = Math.max(a, b);
+        return { localStart, localEnd };
     }
 
     _buildRangeFromBounds(localStart, localEnd, indices) {
@@ -748,73 +661,5 @@ export default class RubberBandSelection {
             globalEnd: globals[globals.length - 1],
             count: globals.length
         };
-    }
-
-    _buildPreviewGeometry(baseGeometry, startPoint, endPoint) {
-        if (!baseGeometry) return null;
-        const origin = baseGeometry.corners?.topLeft;
-        const heightVec = baseGeometry.heightVec;
-        if (!origin || !heightVec) return null;
-        const totalHeight = heightVec.length();
-        if (totalHeight <= DOUBLE_EPSILON) return null;
-        const heightDir = heightVec.clone().normalize();
-        const ratios = [];
-        const pushRatio = point => {
-            if (!point) return;
-            ratios.push(this._projectRatioAlongHeight(point, origin, heightDir, totalHeight));
-        };
-        pushRatio(startPoint);
-        pushRatio(endPoint);
-        if (!ratios.length) return null;
-        let topRatio = Math.max(0, Math.min(...ratios));
-        let bottomRatio = Math.min(1, Math.max(...ratios));
-        if (bottomRatio - topRatio < 1e-3) {
-            const padding = 5e-4;
-            topRatio = Math.max(0, topRatio - padding);
-            bottomRatio = Math.min(1, bottomRatio + padding);
-        }
-        const topEdge = this._lerpEdges(baseGeometry.topEdge, baseGeometry.bottomEdge, topRatio);
-        const bottomEdge = this._lerpEdges(baseGeometry.topEdge, baseGeometry.bottomEdge, bottomRatio);
-        if (!topEdge || !bottomEdge) return null;
-        const corners = {
-            topLeft: topEdge[0],
-            topRight: topEdge[topEdge.length - 1],
-            bottomLeft: bottomEdge[0],
-            bottomRight: bottomEdge[bottomEdge.length - 1]
-        };
-        const widthVec = corners.topRight.subtract(corners.topLeft);
-        const heightVecNew = corners.bottomLeft.subtract(corners.topLeft);
-        const normal = BABYLON.Vector3.Cross(widthVec, heightVecNew).normalize();
-        const center = corners.topLeft
-            .add(widthVec.scale(0.5))
-            .add(heightVecNew.scale(0.5));
-        return {
-            ...baseGeometry,
-            topEdge,
-            bottomEdge,
-            corners,
-            widthVec,
-            heightVec: heightVecNew,
-            normal,
-            center,
-            previewRatios: { topRatio, bottomRatio }
-        };
-    }
-
-    _projectRatioAlongHeight(point, origin, heightDir, totalHeight) {
-        if (!point || !origin) return 0;
-        const rel = point.subtract(origin);
-        const distance = BABYLON.Vector3.Dot(rel, heightDir);
-        return Math.max(0, Math.min(1, distance / totalHeight));
-    }
-
-    _lerpEdges(topEdge, bottomEdge, ratio) {
-        if (!Array.isArray(topEdge) || !Array.isArray(bottomEdge)) return null;
-        if (topEdge.length !== bottomEdge.length) return null;
-        return topEdge.map((point, idx) => {
-            const target = bottomEdge[idx];
-            if (!point || !target) return point;
-            return BABYLON.Vector3.Lerp(point, target, ratio);
-        });
     }
 }

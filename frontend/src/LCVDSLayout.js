@@ -87,7 +87,11 @@ class LCVDSLayout {
     }
 
     setFocusStrategies(rowStrategy, colStrategy) {
-        this._rowFocusStrategy = rowStrategy ? { ...rowStrategy } : null;
+        if (Array.isArray(rowStrategy)) {
+            this._rowFocusStrategy = rowStrategy.length > 0 ? rowStrategy.map(s => ({ ...s })) : null;
+        } else {
+            this._rowFocusStrategy = rowStrategy ? { ...rowStrategy } : null;
+        }
         this._colFocusStrategy = colStrategy ? { ...colStrategy } : null;
         this._updateGeometry();
         this._updateData({ changeType: "geometry_and_data" });
@@ -473,7 +477,9 @@ class LCVDSLayout {
             focusStrategy: this._rowFocusStrategy,
             totalSpan: this.height,
             baseSpan: rowCount > 0 ? this.height / rowCount : this.height,
-            minContextShare: this._rowFocusStrategy?.minContextShare ?? 0.05
+            minContextShare: (Array.isArray(this._rowFocusStrategy)
+                ? this._rowFocusStrategy[0]?.minContextShare
+                : this._rowFocusStrategy?.minContextShare) ?? 0.05
         });
 
         const colWeightInfo = this._buildAxisWeights({
@@ -560,6 +566,42 @@ class LCVDSLayout {
             rowScaleFactors: rowWeightInfo.scaleFactors,
             colScaleFactors: colWeightInfo.scaleFactors
         };
+
+        this._updateCollisionSurface();
+    }
+
+    createCollisionSurface(scene) {
+        this._collisionScene = scene;
+        this._collisionKey = null;
+        this._collisionMesh = null;
+        this._updateCollisionSurface();
+    }
+
+    _updateCollisionSurface() {
+        if (!this._collisionScene) return;
+        const key = `${this.radius}_${this.arcAngle}_${this.height}_${this.groundOffset}`;
+        if (key === this._collisionKey) return;
+        this._collisionKey = key;
+
+        if (this._collisionMesh) this._collisionMesh.dispose();
+
+        const R = this.radius - 0.001;
+        const half = this.arcAngle / 2;
+        const segments = 64;
+        const top = [], bottom = [];
+        for (let i = 0; i <= segments; i++) {
+            const a = -half + this.arcAngle * i / segments;
+            const x = R * Math.sin(a);
+            const z = R * Math.cos(a) - this.radius;
+            top.push(new BABYLON.Vector3(x, this.groundOffset + this.height, z));
+            bottom.push(new BABYLON.Vector3(x, this.groundOffset, z));
+        }
+        this._collisionMesh = BABYLON.MeshBuilder.CreateRibbon(
+            "lcvdsCollision", { pathArray: [top, bottom], sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            this._collisionScene
+        );
+        this._collisionMesh.visibility = 0;
+        this._collisionMesh.isPickable = true;
     }
 
     _updateData({ changeType = "data_only" } = {}) {
@@ -648,7 +690,11 @@ class LCVDSLayout {
             };
         }
 
-        if (!focusStrategy) {
+        // Normalize to array of strategies
+        const strategies = !focusStrategy ? [] :
+            Array.isArray(focusStrategy) ? focusStrategy : [focusStrategy];
+
+        if (strategies.length === 0) {
             const normalizedWeight = 1 / count;
             const normalized = new Array(count).fill(normalizedWeight);
             const spans = normalized.map(weight => weight * totalSpan);
@@ -659,15 +705,19 @@ class LCVDSLayout {
             return { normalized, spans, scaleFactors };
         }
 
-        const focusStart = focusStrategy.start ?? focusStrategy.focusStart;
-        const focusEnd = focusStrategy.end ?? focusStrategy.focusEnd;
-        const focusWeight = this._sanitizeWeight(focusStrategy.focusShare, 0.65);
+        const focusWeight = this._sanitizeWeight(strategies[0]?.focusShare, 0.65);
         const contextWeight = this._sanitizeWeight(
-            typeof focusStrategy.contextShare === "number" ? focusStrategy.contextShare : minContextShare,
+            typeof strategies[0]?.contextShare === "number" ? strategies[0].contextShare : minContextShare,
             minContextShare
         );
 
-        const focusFlags = indices.map(idx => focusStart != null && focusEnd != null ? (idx >= focusStart && idx <= focusEnd) : false);
+        const focusFlags = indices.map(idx => {
+            return strategies.some(s => {
+                const start = s.start ?? s.focusStart;
+                const end = s.end ?? s.focusEnd;
+                return start != null && end != null && idx >= start && idx <= end;
+            });
+        });
         const rawWeights = focusFlags.map(flag => (flag ? focusWeight : contextWeight));
         const totalWeight = rawWeights.reduce((sum, weight) => sum + weight, 0);
 

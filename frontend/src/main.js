@@ -76,9 +76,10 @@ async function initVisualization(csvData) {
         radius: currentLayoutParams.radius,
         height: currentLayoutParams.height,
         groundOffset: 0.1,
-        viewportRows: Math.min(csvData.length || 1, 350),
+        viewportRows: Math.min(csvData.length || 1, 250),
         viewportCols: Math.min(columnCount || 1, 45)
     });
+    layout.createCollisionSurface(scene);
     console.log("No of rows:", csvData.length);
     console.log("No of columns:", Object.keys(csvData[0]).length);
     console.log("No of cells", csvData.length * Object.keys(csvData[0]).length);
