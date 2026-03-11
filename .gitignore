@@ -9,9 +9,6 @@ lerna-debug.log*
 
 # Dependencies
 **/node_modules
-**/__pycache__/
-*.py[cod]
-*$py.class
 
 MA Thema.pdf
 
@@ -21,35 +18,11 @@ dist-ssr
 build
 *.local
 
-# Python/FastAPI specific
+# Environment files
 .env
 .env.local
 .env.production
 .env.*.local
-*.so
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.venv/
-
-# FastAPI/uvicorn
-*.db
-*.sqlite3
-.pytest_cache/
-.coverage
-htmlcov/
-
-# LangChain/AI specific
-*.pkl
-*.pickle
-vector_store/
-embeddings/
-models/
-*.model
-.chroma/
 
 # Editor directories and files
 .vscode/*

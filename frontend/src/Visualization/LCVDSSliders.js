@@ -1,19 +1,5 @@
 import * as BABYLON from "babylonjs";
 
-/**
- * LCVDSSliders - 3D Sliders for configuring LCVDS layout parameters
- * 
- * Provides three sliders above the minimap for:
- * - Arc Angle: Controls the angular spread of the curved display (in degrees)
- * - Radius: Controls the distance from the user to the visualization
- * - Height: Controls the vertical span of the visualization
- * 
- * Optimized for VR with:
- * - Throttled updates to prevent frame drops
- * - Smooth visual feedback
- * - Clear labels visible in VR
- * - Anchored to minimap for consistent positioning
- */
 
 // Slider configuration
 const SLIDER_WIDTH = 0.25;

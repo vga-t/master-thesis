@@ -14,8 +14,8 @@ let currentLayoutParams = {
     height: 5
 };
 
-// const BACKEND_URL = "http://localhost:8000";
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+// Change this file name to point to a different local CSV in frontend/public/csv.
+const CSV_FILE_PATH = `${import.meta.env.BASE_URL}csv/Leukemia.csv`;
 
 
 
@@ -42,24 +42,8 @@ const MAX_TWOTONE_INTERVALS = Math.max(1, (twoToneConfig.colorList?.[0]?.length 
 const audioManager = new AudioManager();
 
 audioManager.onAudioData = (blob) => {
-    console.log("Sending audio to backend...");
-    const formData = new FormData();
-    formData.append("file", blob, "recording.wav");
-
-    fetch(BACKEND_URL + "/process-audio", {
-        method: "POST",
-        body: formData,
-    })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Response from backend:", data);
-            audioManager.generateSpeech(data.message || "Updating visualization");
-            reloadVisualization();
-        })
-        .catch(error => {
-            console.error("Error sending audio:", error);
-            audioManager.generateSpeech("Error processing audio");
-        });
+    if (!blob) return;
+    audioManager.generateSpeech("Voice commands are unavailable in frontend-only mode.");
 };
 
 async function initVisualization(csvData) {
@@ -128,7 +112,7 @@ function handleLayoutParametersChange(params) {
 
 async function reloadVisualization() {
     try {
-        const csvData = await loadCSV(BACKEND_URL + "/csv");
+        const csvData = await loadCSV(CSV_FILE_PATH);
         await initVisualization(csvData);
     } catch (e) {
         console.error("Failed to reload visualization", e);
@@ -136,7 +120,7 @@ async function reloadVisualization() {
 }
 
 // Initial Load
-const initialData = await loadCSV(BACKEND_URL + "/csv");
+const initialData = await loadCSV(CSV_FILE_PATH);
 await initVisualization(initialData);
 
 // Event Listeners
@@ -184,13 +168,8 @@ document.addEventListener("keypress", event => {
             break;
         case "u":
         case "U":
-            fetch(BACKEND_URL + "/undo", { method: "POST" })
-                .then(res => res.json())
-                .then(data => {
-                    console.log(data.message);
-                    audioManager.generateSpeech("Undoing last action");
-                    reloadVisualization();
-                });
+            audioManager.generateSpeech("Reloading local CSV data");
+            reloadVisualization();
             break;
         default:
             // alert("Press 1 (TwoTone) or 2 (HeatMap) to switch visualization!");
