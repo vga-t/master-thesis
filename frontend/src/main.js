@@ -177,6 +177,5 @@ document.addEventListener("keypress", event => {
     }
 });
 
-scene.debugLayer.show();
 
 
