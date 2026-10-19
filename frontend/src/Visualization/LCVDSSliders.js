@@ -265,13 +265,6 @@ class LCVDSSliders {
         const config = slider.config;
         const value = this._values[key];
 
-        const ctx = texture.getContext();
-        ctx.clearRect(0, 0, texture.getSize().width, texture.getSize().height);
-        ctx.fillStyle = "white";
-        ctx.font = "bold 44px Arial";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-
         // Format value based on type
         let displayValue;
         if (key === "arcAngle") {
@@ -279,6 +272,17 @@ class LCVDSSliders {
         } else {
             displayValue = `${value.toFixed(1)}${config.unit}`;
         }
+
+        if (slider._lastDisplayValue === displayValue) {
+            return;
+        }
+        slider._lastDisplayValue = displayValue;
+
+        ctx.clearRect(0, 0, texture.getSize().width, texture.getSize().height);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 44px Arial";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
         ctx.fillText(displayValue, 8, texture.getSize().height / 2);
         texture.update();
     }
@@ -447,8 +451,11 @@ class LCVDSSliders {
 
     _worldToLocal(worldPoint) {
         if (!worldPoint || !this.sliderContainer) return null;
-        const invWorld = this.sliderContainer.getWorldMatrix().clone().invert();
-        return BABYLON.Vector3.TransformCoordinates(worldPoint, invWorld);
+        if (!this._scratchInvMatrix) {
+            this._scratchInvMatrix = new BABYLON.Matrix();
+        }
+        this.sliderContainer.getWorldMatrix().invertToRef(this._scratchInvMatrix);
+        return BABYLON.Vector3.TransformCoordinates(worldPoint, this._scratchInvMatrix);
     }
 
     _setHandleHighlight(sliderKey, highlighted) {
@@ -467,6 +474,15 @@ class LCVDSSliders {
 
     _notifyLayoutChange() {
         const values = this.getValues();
+
+        // Avoid firing redundant layout cycles if values did not change
+        if (this._lastNotifiedValues &&
+            this._lastNotifiedValues.arcAngle === values.arcAngle &&
+            this._lastNotifiedValues.radius === values.radius &&
+            this._lastNotifiedValues.height === values.height) {
+            return;
+        }
+        this._lastNotifiedValues = { ...values };
 
         // Notify callback
         if (this._onLayoutChange) {

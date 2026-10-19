@@ -75,6 +75,7 @@ class SceneManager {
     }
 
     setupMultiRayCasting(xrHelper) {
+        if (!xrHelper?.baseExperience?.featuresManager) return;
 
         xrHelper.baseExperience.featuresManager.enableFeature(
             BABYLON.WebXRFeatureName.POINTER_SELECTION,
@@ -83,8 +84,7 @@ class SceneManager {
             enablePointerSelectionOnAllControllers: true,
             renderingGroupId: 1
         }
-        )
-
+        );
     }
 
 

@@ -113,10 +113,9 @@ export class InteractionManager {
 
     }
     _setupVRControllers() {
-
-
-        if (!this.xrHelper) {
-            console.warn("The browser doesn't support WebXR, therefore XR experience can't be initiated")
+        if (!this.xrHelper?.input) {
+            console.warn("The browser doesn't support WebXR, therefore XR experience can't be initiated");
+            return;
         }
         this.xrHelper.input.onControllerAddedObservable.add((controller) => {
 
@@ -522,6 +521,7 @@ export class InteractionManager {
                     // Start dragging the slider handle
                     this.lcvdsSliders.startDrag(sliderKey, controller);
                     this._sliderInteraction = { type: "sliderDrag", controller, sliderKey };
+                    this._minimapInteraction = this._sliderInteraction;
                     return true;
                 } else if (sliderKind === "track") {
                     // Click on track to set value directly
@@ -529,6 +529,7 @@ export class InteractionManager {
                     // Also start drag from this position
                     this.lcvdsSliders.startDrag(sliderKey, controller);
                     this._sliderInteraction = { type: "sliderDrag", controller, sliderKey };
+                    this._minimapInteraction = this._sliderInteraction;
                     return true;
                 }
             }
@@ -784,12 +785,35 @@ export class InteractionManager {
         );
 
         if (!isInteracting) {
-            this.minimap.updateViewport(this.layout.getScrollState(), {
-                visibleRows: this.layout.visibleRows,
-                visibleCols: this.layout.visibleCols,
-                totalRows: this.layout.totalRows,
-                totalCols: this.layout.totalCols
-            });
+            const scrollState = this.layout.getScrollState();
+            const visibleRows = this.layout.visibleRows;
+            const visibleCols = this.layout.visibleCols;
+            const totalRows = this.layout.totalRows;
+            const totalCols = this.layout.totalCols;
+
+            const last = this._lastSyncedViewportState;
+            if (!last ||
+                last.rowOffset !== scrollState.rowOffset ||
+                last.colOffset !== scrollState.colOffset ||
+                last.visibleRows !== visibleRows ||
+                last.visibleCols !== visibleCols ||
+                last.totalRows !== totalRows ||
+                last.totalCols !== totalCols) {
+                this.minimap.updateViewport(scrollState, {
+                    visibleRows,
+                    visibleCols,
+                    totalRows,
+                    totalCols
+                });
+                this._lastSyncedViewportState = {
+                    rowOffset: scrollState.rowOffset,
+                    colOffset: scrollState.colOffset,
+                    visibleRows,
+                    visibleCols,
+                    totalRows,
+                    totalCols
+                };
+            }
         }
 
         if (this._minimapInteraction && this._minimapVisible) {

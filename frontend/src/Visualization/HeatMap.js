@@ -72,7 +72,7 @@ export class HeatMapVisualization {
 
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneHeatMap",
-            { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            { height: 1, width: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
         const material = new BABYLON.StandardMaterial("planeMaterial", scene);
@@ -156,16 +156,9 @@ export class HeatMapVisualization {
             return;
         }
 
-        // Check if cell dimensions changed and recreate basePlane to avoid z-fighting
-        if (changeType === "cell_size_changed" || changeType === "geometry_and_data") {
-            const newCellWidth = this.layout.cellWidth;
-            const newCellHeight = this.layout.cellHeight;
-
-            if (Math.abs(newCellWidth - this._currentCellWidth) > 1e-6 ||
-                Math.abs(newCellHeight - this._currentCellHeight) > 1e-6) {
-                this._recreateBasePlane(newCellWidth, newCellHeight);
-            }
-        }
+        // Keep tracked dimensions updated without destroying/recreating the mesh
+        this._currentCellWidth = this.layout.cellWidth;
+        this._currentCellHeight = this.layout.cellHeight;
 
         if (changeType === "data_only") {
             this.renderData(snapshot);
@@ -177,33 +170,7 @@ export class HeatMapVisualization {
     }
 
     _recreateBasePlane(newCellWidth, newCellHeight) {
-        // Store current material and visibility state
-        const material = this.basePlane.material;
-        const isPickable = this.basePlane.isPickable;
-        const isVisible = this.basePlane.isVisible;
-
-        // Clear instances first to prevent z-fighting
-        this._clearInstances();
-
-        // Dispose old mesh
-        this.basePlane.dispose(false, false); // Don't dispose material or children
-
-        // Create new mesh with updated dimensions
-        this.basePlane = BABYLON.MeshBuilder.CreatePlane(
-            "basePlaneHeatMap",
-            { height: newCellHeight, width: newCellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
-            this.scene
-        );
-
-        // Restore properties
-        this.basePlane.material = material;
-        if (material) {
-            this._configureMaterial(material);
-        }
-        this.basePlane.isPickable = isPickable;
-        this.basePlane.isVisible = isVisible;
-
-        // Update tracked dimensions
+        // No-op: basePlane is an immutable unit quad scaled by the thin instance matrix
         this._currentCellWidth = newCellWidth;
         this._currentCellHeight = newCellHeight;
     }

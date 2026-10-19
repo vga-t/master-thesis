@@ -77,7 +77,11 @@ export default class ColumnHeaders {
             const z = radius * Math.cos(centerAngle) - radius;
 
             header.mesh.position.set(x, topY, z);
-            header.mesh.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(centerAngle, 0, 0);
+            if (!header.mesh.rotationQuaternion) {
+                header.mesh.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(centerAngle, 0, 0);
+            } else {
+                BABYLON.Quaternion.RotationYawPitchRollToRef(centerAngle, 0, 0, header.mesh.rotationQuaternion);
+            }
             header.mesh.scaling.x = chordWidth * 0.95;
 
             if (header.textBlock.text !== colKey) {

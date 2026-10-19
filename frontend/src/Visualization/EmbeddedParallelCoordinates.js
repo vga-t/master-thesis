@@ -201,6 +201,13 @@ export default class EmbeddedParallelCoordinates {
             snapshot.colCount - 1
         ));
 
+        const changed = (this._currentRowRange.localStart !== newRowStart ||
+            this._currentRowRange.localEnd !== newRowEnd ||
+            this._currentColRange.localStart !== newColStart ||
+            this._currentColRange.localEnd !== newColEnd);
+
+        if (!changed) return;
+
         // Update ranges
         this._currentRowRange.localStart = newRowStart;
         this._currentRowRange.localEnd = newRowEnd;

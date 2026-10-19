@@ -2,6 +2,8 @@ import * as BABYLON from "babylonjs";
 
 const DEFAULT_VISIBLE_ROWS = 48;
 const DEFAULT_VISIBLE_COLS = 12;
+const MAX_VIEWPORT_ROWS = 400;
+const MAX_VIEWPORT_COLS = 80;
 
 class LCVDSLayout {
     constructor(csvData, {
@@ -26,8 +28,8 @@ class LCVDSLayout {
 
         const targetRows = viewportRows ?? DEFAULT_VISIBLE_ROWS;
         const targetCols = viewportCols ?? DEFAULT_VISIBLE_COLS;
-        this.visibleRows = Math.max(1, Math.min(targetRows, Math.max(1, this.totalRows)));
-        this.visibleCols = Math.max(1, Math.min(targetCols, Math.max(1, this.totalCols)));
+        this.visibleRows = Math.max(1, Math.min(targetRows, Math.max(1, this.totalRows), MAX_VIEWPORT_ROWS));
+        this.visibleCols = Math.max(1, Math.min(targetCols, Math.max(1, this.totalCols), MAX_VIEWPORT_COLS));
 
         this.cellWidth = this.visibleCols > 0 ? this.arcLength / this.visibleCols : 0;
         this.cellHeight = this.visibleRows > 0 ? this.height / this.visibleRows : 0;
@@ -155,8 +157,8 @@ class LCVDSLayout {
     }
 
     setVisibleViewport(visibleRows, visibleCols, rowOffset = null, colOffset = null) {
-        const targetRows = Math.max(1, Math.min(Math.round(visibleRows), this.totalRows));
-        const targetCols = Math.max(1, Math.min(Math.round(visibleCols), this.totalCols));
+        const targetRows = Math.max(1, Math.min(Math.round(visibleRows), this.totalRows, MAX_VIEWPORT_ROWS));
+        const targetCols = Math.max(1, Math.min(Math.round(visibleCols), this.totalCols, MAX_VIEWPORT_COLS));
 
         const viewportChanged = (targetRows !== this.visibleRows || targetCols !== this.visibleCols);
 
@@ -197,9 +199,7 @@ class LCVDSLayout {
         this.scrollColOffset = newColOffset;
 
         if (viewportChanged) {
-            // Notify observers about the cell dimension change
-            this._notifyObservers("cell_size_changed");
-            // Full update
+            // Full update in a single pass without redundant intermediate cell_size_changed pass
             this._updateGeometry();
             this._updateData({ changeType: "geometry_and_data" });
         } else if (offsetsChanged) {
@@ -343,8 +343,15 @@ class LCVDSLayout {
         else type = "categorical";
 
         if (type === "numeric") {
-            const min = numericValid.length ? Math.min(...numericValid) : 0;
-            const max = numericValid.length ? Math.max(...numericValid) : 1;
+            let min = Infinity;
+            let max = -Infinity;
+            for (let i = 0; i < numericValid.length; i++) {
+                const num = numericValid[i];
+                if (num < min) min = num;
+                if (num > max) max = num;
+            }
+            if (!Number.isFinite(min)) min = 0;
+            if (!Number.isFinite(max)) max = 1;
             const span = max - min || 1;
             return {
                 type,
@@ -359,8 +366,15 @@ class LCVDSLayout {
         }
 
         if (type === "date") {
-            const min = dateValid.length ? Math.min(...dateValid) : Date.now();
-            const max = dateValid.length ? Math.max(...dateValid) : min + 1;
+            let min = Infinity;
+            let max = -Infinity;
+            for (let i = 0; i < dateValid.length; i++) {
+                const num = dateValid[i];
+                if (num < min) min = num;
+                if (num > max) max = num;
+            }
+            if (!Number.isFinite(min)) min = Date.now();
+            if (!Number.isFinite(max)) max = min + 1;
             const span = max - min || 1;
             return {
                 type,
@@ -512,11 +526,11 @@ class LCVDSLayout {
         let matrixOffset = 0;
         for (let r = 0; r < rowCount; r++) {
             const y = rowCenters[r] ?? (this.groundOffset + (rowCount - 1 - r) * this.cellHeight + this.cellHeight / 2);
-            const sy = rowWeightInfo.scaleFactors[r] ?? 1;
+            const sy = (rowWeightInfo.scaleFactors[r] ?? 1) * this.cellHeight;
 
             for (let c = 0; c < colCount; c++) {
                 const angle = colAngles[c] ?? startAngle;
-                const sx = colWeightInfo.scaleFactors[c] ?? 1;
+                const sx = (colWeightInfo.scaleFactors[c] ?? 1) * this.cellWidth;
 
                 const sinA = Math.sin(angle);
                 const cosA = Math.cos(angle);
@@ -566,42 +580,14 @@ class LCVDSLayout {
             rowScaleFactors: rowWeightInfo.scaleFactors,
             colScaleFactors: colWeightInfo.scaleFactors
         };
-
-        this._updateCollisionSurface();
     }
 
     createCollisionSurface(scene) {
         this._collisionScene = scene;
-        this._collisionKey = null;
-        this._collisionMesh = null;
-        this._updateCollisionSurface();
     }
 
     _updateCollisionSurface() {
-        if (!this._collisionScene) return;
-        const key = `${this.radius}_${this.arcAngle}_${this.height}_${this.groundOffset}`;
-        if (key === this._collisionKey) return;
-        this._collisionKey = key;
-
-        if (this._collisionMesh) this._collisionMesh.dispose();
-
-        const R = this.radius - 0.001;
-        const half = this.arcAngle / 2;
-        const segments = 64;
-        const top = [], bottom = [];
-        for (let i = 0; i <= segments; i++) {
-            const a = -half + this.arcAngle * i / segments;
-            const x = R * Math.sin(a);
-            const z = R * Math.cos(a) - this.radius;
-            top.push(new BABYLON.Vector3(x, this.groundOffset + this.height, z));
-            bottom.push(new BABYLON.Vector3(x, this.groundOffset, z));
-        }
-        this._collisionMesh = BABYLON.MeshBuilder.CreateRibbon(
-            "lcvdsCollision", { pathArray: [top, bottom], sideOrientation: BABYLON.Mesh.DOUBLESIDE },
-            this._collisionScene
-        );
-        this._collisionMesh.visibility = 0;
-        this._collisionMesh.isPickable = true;
+        // No-op: pickCellFromRay uses analytical mathematical raycasting, avoiding expensive procedural ribbon allocation
     }
 
     _updateData({ changeType = "data_only" } = {}) {

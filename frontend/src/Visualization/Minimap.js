@@ -308,8 +308,8 @@ class MinimapVisualization {
         const viewportWidthRatio = newVpWidth / this._width;
         const viewportHeightRatio = newVpHeight / this._height;
 
-        const newVisibleCols = Math.max(1, Math.round(viewportWidthRatio * totalCols));
-        const newVisibleRows = Math.max(1, Math.round(viewportHeightRatio * totalRows));
+        const newVisibleCols = Math.max(1, Math.min(Math.round(viewportWidthRatio * totalCols), 80));
+        const newVisibleRows = Math.max(1, Math.min(Math.round(viewportHeightRatio * totalRows), 400));
 
         // Calculate new scroll offsets based on viewport position
         const colNorm = (clampedCenterX + halfWidth - newVpWidth / 2) / Math.max(0.001, this._width - newVpWidth);

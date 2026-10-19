@@ -470,11 +470,11 @@ export default class RubberBandSelection {
         BABYLON.Matrix.FromArrayToRef(snapshot.positionMatrix, matrixOffset, this._tempMatrix);
         const sign = CORNER_LUT[cornerKey];
         if (!sign) return null;
-        const halfW = (snapshot.cellWidth ?? 1) / 2;
-        const halfH = (snapshot.cellHeight ?? 1) / 2;
+        // The position matrix already incorporates cellWidth and cellHeight scaling into its basis vectors.
+        // Therefore, the local quad corner relative to the matrix origin is at +-0.5.
         const localCorner = new BABYLON.Vector3(
-            sign.x > 0 ? halfW : -halfW,
-            sign.y > 0 ? halfH : -halfH,
+            sign.x > 0 ? 0.5 : -0.5,
+            sign.y > 0 ? 0.5 : -0.5,
             0
         );
         return BABYLON.Vector3.TransformCoordinates(localCorner, this._tempMatrix);

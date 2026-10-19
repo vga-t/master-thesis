@@ -1,6 +1,6 @@
 import * as BABYLON from "babylonjs";
-import Color from "colorjs.io";
 
+const _stopsCache = new Map();
 
 export const twoToneConfig = {
     minValue: 0,
@@ -10,30 +10,34 @@ export const twoToneConfig = {
 
         // clamp input value
         const v = Math.max(minValue, Math.min(maxValue, value));
-        // pick the original palette for this column
-        const orig = paletteList[colIndex % paletteList.length];
-        const P = orig.length;
+        const pIdx = colIndex % paletteList.length;
+        const orig = paletteList[pIdx];
+        const cacheKey = `${pIdx}_${intervals}`;
+        let stops = _stopsCache.get(cacheKey);
 
-        // build a small palette of (intervals + 1) stops evenly spaced
-        // by interpolating between palette colors to keep progression consistent
-        const stops = [];
-        const sampleAt = (t) => {
-            if (P <= 1) return orig[0] ?? [0, 0, 0];
-            const scaled = t * (P - 1);
-            const i = Math.min(P - 2, Math.max(0, Math.floor(scaled)));
-            const f = scaled - i;
-            const c1 = orig[i];
-            const c2 = orig[i + 1] ?? orig[i];
-            return [
-                (c1[0] ?? 0) + ((c2[0] ?? 0) - (c1[0] ?? 0)) * f,
-                (c1[1] ?? 0) + ((c2[1] ?? 0) - (c1[1] ?? 0)) * f,
-                (c1[2] ?? 0) + ((c2[2] ?? 0) - (c1[2] ?? 0)) * f
-            ];
-        };
-        for (let j = 0; j <= intervals; j++) {
-            const tStop = intervals > 0 ? (j / intervals) : 0;
-            stops.push(sampleAt(tStop));
+        if (!stops) {
+            const P = orig.length;
+            stops = [];
+            for (let j = 0; j <= intervals; j++) {
+                const tStop = intervals > 0 ? (j / intervals) : 0;
+                if (P <= 1) {
+                    stops.push(orig[0] ?? [0, 0, 0]);
+                } else {
+                    const scaled = tStop * (P - 1);
+                    const idx = Math.min(P - 2, Math.max(0, Math.floor(scaled)));
+                    const f = scaled - idx;
+                    const c1 = orig[idx];
+                    const c2 = orig[idx + 1] ?? orig[idx];
+                    stops.push([
+                        (c1[0] ?? 0) + ((c2[0] ?? 0) - (c1[0] ?? 0)) * f,
+                        (c1[1] ?? 0) + ((c2[1] ?? 0) - (c1[1] ?? 0)) * f,
+                        (c1[2] ?? 0) + ((c2[2] ?? 0) - (c1[2] ?? 0)) * f
+                    ]);
+                }
+            }
+            _stopsCache.set(cacheKey, stops);
         }
+
         const scaled = (v - minValue) / (maxValue - minValue) * intervals;
         let i = Math.floor(scaled);
         if (i >= intervals) i = intervals - 1;
@@ -42,8 +46,7 @@ export const twoToneConfig = {
         const c1 = stops[i];
         const c2 = stops[i + 1];
         return { c1, c2, splitRatio: t };
-    }
-    ,
+    },
 
     colorList: [[[247, 251, 255],
     [222, 235, 247],
@@ -116,7 +119,7 @@ export class TwoToneVisualization {
 
         this.basePlane = BABYLON.MeshBuilder.CreatePlane(
             "basePlaneTwoTone",
-            { height: layout.cellHeight, width: layout.cellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+            { height: 1, width: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
             scene
         );
 
@@ -365,16 +368,9 @@ export class TwoToneVisualization {
             return;
         }
 
-        // Check if cell dimensions changed and recreate basePlane to avoid z-fighting
-        if (changeType === "cell_size_changed" || changeType === "geometry_and_data") {
-            const newCellWidth = this.layout.cellWidth;
-            const newCellHeight = this.layout.cellHeight;
-
-            if (Math.abs(newCellWidth - this._currentCellWidth) > 1e-6 ||
-                Math.abs(newCellHeight - this._currentCellHeight) > 1e-6) {
-                this._recreateBasePlane(newCellWidth, newCellHeight);
-            }
-        }
+        // Keep tracked dimensions updated without destroying/recreating the mesh or shader program
+        this._currentCellWidth = this.layout.cellWidth;
+        this._currentCellHeight = this.layout.cellHeight;
 
         if (changeType === "data_only") {
             this.renderData(this._lastPaletteCount, this._lastIntervals, snapshot);
@@ -386,34 +382,7 @@ export class TwoToneVisualization {
     }
 
     _recreateBasePlane(newCellWidth, newCellHeight) {
-        // Store current visibility and pickable state
-        const isPickable = this.basePlane.isPickable;
-        const isVisible = this.basePlane.isVisible;
-
-        // Clear instances first to prevent z-fighting
-        this._clearInstances();
-
-        // Dispose old mesh and material
-        if (this.basePlane.material) {
-            this.basePlane.material.dispose();
-        }
-        this.basePlane.dispose();
-
-        // Create new mesh with updated dimensions
-        this.basePlane = BABYLON.MeshBuilder.CreatePlane(
-            "basePlaneTwoTone",
-            { height: newCellHeight, width: newCellWidth, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
-            this.scene
-        );
-
-        // Apply shader material
-        this._applyShaderMaterial();
-
-        // Restore properties
-        this.basePlane.isPickable = isPickable;
-        this.basePlane.isVisible = isVisible;
-
-        // Update tracked dimensions
+        // No-op: basePlane is an immutable unit quad scaled by the thin instance matrix, avoiding GPU shader recompilations
         this._currentCellWidth = newCellWidth;
         this._currentCellHeight = newCellHeight;
     }
